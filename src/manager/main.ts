@@ -1,22 +1,64 @@
-import type { RequestPayload, ResponsePayload } from "./types";
+import { MessageType, type RequestPayload, type ResponsePayload } from "./types";
 
-/**
- * 请求tabManager，返回结果
- * @param payload
- */
-export async function requestManager(
-  payload: RequestPayload
-): Promise<ResponsePayload> {
-  throw new Error("Not implemented");
-}
-
-/**
- * 递交任务给tabManager, 不关心结果
- * @param payload
- */
-export async function postManager(payload: RequestPayload) {}
-
-document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "visible") {
+export class InitSharedWorker {
+  private worker: SharedWorker | null = null
+  private port: MessagePort | null = null
+  private _initStatus: boolean = false
+  constructor(url: string | URL, options?: WorkerOptions) {
+    this.init(url, options)
   }
-});
+  private init(url: string | URL, options?: WorkerOptions) {
+    if (this.worker) {
+      return
+    }
+    this.worker = new SharedWorker(url, options)
+    this.port = this.worker.port
+
+    this.port.onmessage = (e) => {
+      if (e.data.type === MessageType.CONNECTED) {
+        this._initStatus = true
+        return
+      }
+
+      // 处理任务结果
+    }
+    this.port.start();
+  }
+
+  get initStatus() {
+    return this._initStatus
+  }
+
+  /**
+   * 递交任务给tabManager, 不关心结果
+   * @param payload
+   */
+  postManager(payload: RequestPayload) {
+    if (!this.port) {
+      return
+    }
+    this.port.postMessage(payload);
+  }
+
+  /**
+   * 请求tabManager，返回结果
+   * @param payload
+   */
+  requestManager(
+    payload: RequestPayload
+  ): Promise<ResponsePayload> {
+    if (!this.port) {
+      return Promise.reject(new Error("Worker not initialized"));
+    }
+    return new Promise((resolve) => {
+
+    });
+  }
+
+  destroy() {
+    this.port?.close()
+    this.worker = null
+    this.port = null
+    this._initStatus = false
+  }
+}

@@ -1,10 +1,6 @@
-import {
-  SharedHandleTypes,
-  type QueueElement,
-  type RequestPayload,
-  type ResponsePayload,
-  type TabDescriptor,
-} from "../types";
+import { Emitter } from "../../event";
+import { Logger } from "../../logger";
+import { type QueueElement, type RequestPayload } from "../types";
 
 export class EventQueue {
   static MAX_CONCURRENCY = 5;
@@ -14,22 +10,54 @@ export class EventQueue {
   static changeConcurrency(value: number) {
     this.MAX_CONCURRENCY = value;
   }
-  eventQueue: QueueElement[] = [];
-  activeTasks: QueueElement[] = [];
-  isDispatching = false;
+  protected eventQueue: QueueElement[] = [];
+  protected activeTasks: QueueElement[] = [];
+  protected isDispatching = false;
 
-  constructor() {}
+  protected _onProcessQueue = new Emitter();
+  protected _onTaskRun = new Emitter<QueueElement>();
+  public onProcessQueue = this._onProcessQueue.event;
+  public onTaskRun = this._onTaskRun.event;
 
-  enqueue(tabId: string, payload: RequestPayload) {
+  private logger = Logger.scope("EventQueue");
+
+  constructor() {
+    this.logger.info("EventQueue created");
+  }
+
+  public enqueue(tabId: string, payload: RequestPayload) {
     this.eventQueue.push({ tabId, payload });
     this.processQueue();
   }
 
-  processQueue() {
-    if (!this.center.leaderElection.leader) {
-      this.center.leaderElection.electLeader();
-    } else if (!this.isDispatching) {
+  public processQueue() {
+    this._onProcessQueue.fire();
+    if (!this.isDispatching) {
       this.dispatch();
+    }
+  }
+
+  public completeTask(
+    task: QueueElement,
+    callback: boolean,
+    message?: string
+  ) {
+    
+  }
+
+  public destroy() {
+    this.eventQueue = [];
+    this.activeTasks = [];
+    this._onProcessQueue.dispose();
+    this._onTaskRun.dispose();
+  }
+
+  private pushTask(task: QueueElement) {
+    this.activeTasks.push(task);
+    if (this._onTaskRun.hasListeners()) {
+      this._onTaskRun.fire(task);
+    } else {
+      throw new Error("No listener for task run event");
     }
   }
 
@@ -40,58 +68,8 @@ export class EventQueue {
       this.eventQueue.length > 0
     ) {
       const task = this.eventQueue.shift()!;
-      this.activeTasks.push(task);
-      this.handleTask(task);
+      this.pushTask(task);
     }
     this.isDispatching = false;
-  }
-
-  private handleTask(task: QueueElement) {
-    const { tabId, payload } = task;
-    const tab = this.center.tabManager.getTabById(tabId);
-
-    if (!tab) {
-      this.completeTask(task, false, "Tab not found");
-      return;
-    }
-
-    if (SharedHandleTypes.includes(payload.type)) {
-      this.handleSharedWorkerEvent(tab, task);
-    } else {
-      this.sendToLeader(task);
-    }
-  }
-
-  private handleSharedWorkerEvent(tab: TabDescriptor, task: QueueElement) {
-    setTimeout(() => {
-      this.completeTask(task, true, "Task completed");
-    }, 1000);
-  }
-
-  private sendToLeader(task: QueueElement) {
-    const { payload } = task;
-    if (this.center.leaderElection.leader) {
-      this.center.leaderElection.leader.prot.postMessage(payload);
-    }
-  }
-
-  private completeTask(task: QueueElement, success: boolean, data: any) {
-    const { tabId, payload } = task;
-    const tab = this.center.tabManager.getTabById(tabId);
-    if (tab) {
-      const response: ResponsePayload = {
-        reqId: payload.reqId,
-        success,
-        data,
-      };
-      tab.prot.postMessage(response);
-    }
-    this.activeTasks = this.activeTasks.filter((t) => t !== task);
-    this.processQueue();
-  }
-
-  public destroy() {
-    this.eventQueue = [];
-    this.activeTasks = [];
   }
 }

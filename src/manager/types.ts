@@ -6,10 +6,14 @@ export enum MessageType {
   /**
    * 参选
    */
-  ELECTION = "ELECTION",
+  CAMPAIGN = "CAMPAIGN",
+  /**
+   * 链接完成
+   */
+  CONNECTED = "CONNECTED",
 }
 
-export const SharedHandleTypes = [MessageType.DESTROY, MessageType.ELECTION];
+export const SharedHandleTypes = [MessageType.DESTROY, MessageType.CAMPAIGN];
 
 export interface RequestPayload<T = any> {
   type: MessageType;
@@ -23,7 +27,8 @@ export interface QueueElement<T = any> {
 }
 
 export interface ResponsePayload<T = any> {
-  reqId: string;
+  type: MessageType;
+  reqId?: string;
   success: boolean;
   data?: T;
   message?: string;

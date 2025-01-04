@@ -5,3 +5,8 @@ export class Counter {
     return this.count++;
   }
 }
+
+export const generateReqId = () => {
+  const newId = `${Date.now()}-${Math.random()}`
+  return newId
+}

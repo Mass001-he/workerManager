@@ -12,7 +12,7 @@ import { generateReqId } from "./manager/utils";
 // );
 
 const worker = new InitSharedWorker(
-  new URL("./manager/worker.ts", import.meta.url),
+  "./manager/worker.ts",
   {
     name: "managerWorker",
   }

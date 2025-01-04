@@ -4,14 +4,14 @@ export class InitSharedWorker {
   private worker: SharedWorker | null = null
   private port: MessagePort | null = null
   private _initStatus: boolean = false
-  constructor(url: string | URL, options?: WorkerOptions) {
+  constructor(url: string, options?: WorkerOptions) {
     this.init(url, options)
   }
-  private init(url: string | URL, options?: WorkerOptions) {
+  private init(url: string, options?: WorkerOptions) {
     if (this.worker) {
       return
     }
-    this.worker = new SharedWorker(url, options)
+    this.worker = new SharedWorker(new URL(url, import.meta.url), options)
     this.port = this.worker.port
 
     this.port.onmessage = (e) => {

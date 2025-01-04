@@ -9,6 +9,8 @@ export enum MessageType {
   ELECTION = "ELECTION",
 }
 
+export const SharedHandleTypes = [MessageType.DESTROY, MessageType.ELECTION];
+
 export interface RequestPayload<T = any> {
   type: MessageType;
   reqId: string;

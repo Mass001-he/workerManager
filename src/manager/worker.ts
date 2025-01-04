@@ -1,18 +1,29 @@
 import {
   RequestPayload,
+  ResponsePayload,
   type QueueElement,
   type SharedWorkerGlobalScope,
   type TabDescriptor,
+  MessageType,
+  SharedHandleTypes,
 } from "./types";
 
 declare var self: SharedWorkerGlobalScope;
 declare var globalThis: typeof self;
+
+class Counter {
+  count = 0;
+  next() {
+    return this.count++;
+  }
+}
 
 class TabManager {
   /**
    * 事件队列并行执行最大数量
    */
   static MAX_CONCURRENCY = 5;
+  tabIdCounter = new Counter();
   /**
    * 所有标签
    */
@@ -26,7 +37,14 @@ class TabManager {
    */
   campaigners: TabDescriptor[] = [];
   eventQueue: QueueElement[] = [];
-
+  /**
+   * 当前正在处理的任务
+   */
+  activeTasks: QueueElement[] = [];
+  /**
+   * 是否正在调度
+   */
+  isDispatching = false;
 
   constructor() {
     this.register();
@@ -43,7 +61,7 @@ class TabManager {
   private processQueue() {
     if (!this.leader) {
       this.electLeader();
-    } else {
+    } else if (!this.isDispatching) {
       this.dispatch();
     }
   }
@@ -53,17 +71,69 @@ class TabManager {
     return tab;
   }
 
+  private getTabIndexById(id: string) {
+    return this.tabs.findIndex((t) => t.id === id);
+  }
+
   private dispatch() {
-    if (this.eventQueue.length === 0) {
+    this.isDispatching = true;
+    while (
+      this.activeTasks.length < TabManager.MAX_CONCURRENCY &&
+      this.eventQueue.length > 0
+    ) {
+      const task = this.eventQueue.shift()!;
+      this.activeTasks.push(task);
+      this.handleTask(task);
+    }
+    this.isDispatching = false;
+  }
+
+  private handleTask(task: QueueElement) {
+    const { tabId, payload } = task;
+    const tab = this.getTabById(tabId);
+
+    if (!tab) {
+      this.completeTask(task, false, "Tab not found");
       return;
     }
-    //任务完成的定义是，无论成功或报错
-    //1.从队列中调取一个任务
-    //2.分类任务，如果不是sharedWorker处理,则派遣给leader处理.如果是sharedWorker处理，则直接派遣给sharedWorker处理
-    //3.允许同时处理任务,同时处理的任务数量不能超过MAX_CONCURRENCY
-    //4.只有任务处理完成(成功或者报错)后，从队列中清理这个任务.否则,任务会一直存在于队列中
-    //5.任务完成后，会postMessage通知tab任务完成
-    //6.当发送任务的tab关闭后，任务会被直接清理(TODO:考虑记录日志)
+
+    if (SharedHandleTypes.includes(payload.type)) {
+      // SharedWorker 处理任务
+      this.handleSharedWorkerEvent(tab, task);
+    } else {
+      // 领导者处理任务
+      this.sendToLeader(task);
+    }
+  }
+
+  private handleSharedWorkerEvent(tab: TabDescriptor, task: QueueElement) {
+    const { payload } = task;
+    // 模拟任务完成
+    setTimeout(() => {
+      this.completeTask(task, true, "Task completed");
+    }, 1000); // 模拟任务处理时间
+  }
+
+  private sendToLeader(task: QueueElement) {
+    const { payload } = task;
+    if (this.leader) {
+      this.leader.prot.postMessage(payload);
+    }
+  }
+
+  private completeTask(task: QueueElement, success: boolean, data: any) {
+    const { tabId, payload } = task;
+    const tab = this.getTabById(tabId);
+    if (tab) {
+      const response: ResponsePayload = {
+        reqId: payload.reqId,
+        success,
+        data,
+      };
+      tab.prot.postMessage(response);
+    }
+    this.activeTasks = this.activeTasks.filter((t) => t !== task);
+    this.processQueue();
   }
 
   /**
@@ -88,12 +158,21 @@ class TabManager {
     });
   }
 
+  private onTabDestroy(tab: TabDescriptor) {
+    const idx = this.getTabIndexById(tab.id);
+    if (idx !== -1) {
+      this.tabs.splice(idx, 1);
+      if (this.leader === tab) {
+        this.electLeader();
+      }
+    }
+  }
+
   private register() {
     globalThis.addEventListener("connect", (e: MessageEvent) => {
       const port = e.ports[0];
-      //todo,永远累加
       const tab = {
-        id: "tab" + this.tabs.length,
+        id: "tab" + this.tabIdCounter.next(),
         prot: port,
       };
       this.tabs.push(tab);

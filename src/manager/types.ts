@@ -16,7 +16,7 @@ export enum MessageType {
 export const SharedHandleTypes = [MessageType.DESTROY, MessageType.CAMPAIGN];
 
 export interface RequestPayload<T = any> {
-  type: MessageType;
+  type?: MessageType;
   reqId: string;
   data?: T;
 }
@@ -27,7 +27,7 @@ export interface QueueElement<T = any> {
 }
 
 export interface ResponsePayload<T = any> {
-  type: MessageType;
+  type?: MessageType;
   reqId?: string;
   success: boolean;
   data?: T;

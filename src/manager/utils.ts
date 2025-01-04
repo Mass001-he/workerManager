@@ -7,6 +7,9 @@ export class Counter {
 }
 
 export const generateReqId = () => {
-  const newId = `${Date.now()}-${Math.random()}`
-  return newId
+  const timestamp = Date.now();
+  const randomNum1 = Math.random().toString(36).substr(2, 9);
+  const randomNum2 = Math.random().toString(36).substr(2, 9);
+  const uniqueId = `${timestamp}-${randomNum1}-${randomNum2}`;
+  return uniqueId;
 }

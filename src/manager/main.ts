@@ -1,27 +1,56 @@
 import { Emitter } from '../event';
+import { SchedulerAction, TabAction } from './tabScheduler/constant';
 import {
   MessageType,
+  type NoticePayload,
+  type PayloadLike,
   type RequestPayload,
   type ResponsePayload,
 } from './types';
+import { generateReqId } from './utils';
 
 export class InitSharedWorker {
   private worker: SharedWorker | null = null;
-  private port: MessagePort | null = null;
-  private _initStatus: boolean = false;
-  private messageQueue: Map<string, (data: any) => void>;
-  private messageRejectQueue: Map<string, (data: any) => void>;
+  private port!: MessagePort;
+  private promiseMap: Map<
+    string,
+    { resolve: (data: any) => void; reject: (data: any) => void }
+  >;
 
-  protected _onMessage = new Emitter();
+  private _onNotice = new Emitter<NoticePayload>();
+  onNotice = this._onNotice.event;
 
-  onMessage = this._onMessage.event;
+  static async create() {
+    const ins = new InitSharedWorker();
+    return new Promise<InitSharedWorker>((resolve) => {
+      const handle = (e: any) => {
+        const { type, data } = e.data as PayloadLike;
+        if (
+          type === MessageType.Notice &&
+          data.action === TabAction.Connected
+        ) {
+          resolve(ins);
+        }
+        ins.port.removeEventListener('message', handle);
+      };
+      ins.port.addEventListener('message', handle);
+    });
+  }
 
-  constructor() {
-    this.messageQueue = new Map();
-    this.messageRejectQueue = new Map();
+  private constructor() {
+    this.promiseMap = new Map();
     this.init();
   }
-  private init() {
+
+  private campaign = () => {
+    this.postManager({
+      data: {
+        action: SchedulerAction.Campaign,
+      },
+    });
+  };
+
+  private init = () => {
     if (this.worker) {
       return;
     }
@@ -30,70 +59,102 @@ export class InitSharedWorker {
     });
     this.port = this.worker.port;
     this.port.start();
-
+    this.campaign();
     this.register();
-  }
 
-  get initStatus() {
-    return this._initStatus;
-  }
-
-  register() {
-    if (!this.port) {
-      return;
-    }
-    this.port.onmessage = (event) => {
-      const { data, reqId, type } = event.data;
-      if (type === MessageType.CONNECTED) {
-        this._initStatus = true;
-        this._onMessage.fire();
-        return;
-      }
-
-      const resolve = this.messageQueue.get(reqId);
-      if (resolve) {
-        resolve(data);
-        this.messageQueue.delete(reqId);
-      }
+    window.onbeforeunload = () => {
+      this.destroy();
     };
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        this.postManager({
+          data: {
+            action: TabAction.Connected,
+          },
+        });
+      }
+    });
+  };
+
+  private onResponse(payload: ResponsePayload) {
+    console.log('onResponse', payload);
+    const { success, reqId, data } = payload;
+    const mHandlerPromiser = this.promiseMap.get(reqId);
+    if (mHandlerPromiser) {
+      if (success) {
+        mHandlerPromiser.resolve(data);
+      } else {
+        mHandlerPromiser.reject(data);
+      }
+      this.promiseMap.delete(reqId);
+    }
+  }
+
+  private register() {
+    this.port.addEventListener('message', (ev) => {
+      const { type } = ev.data as PayloadLike;
+
+      switch (type) {
+        case MessageType.Notice:
+          this._onNotice.fire(ev.data as NoticePayload);
+          break;
+        case MessageType.Response:
+          this.onResponse(ev.data);
+        default:
+          break;
+      }
+    });
 
     this.port.onmessageerror = (error) => {
       console.error('Message port error:', error);
     };
+
+    this.onNotice((e) => {
+      console.log('onNotice', e);
+    });
   }
 
   /**
    * 递交任务给tabManager, 不关心结果
    * @param payload
    */
-  postManager(payload: RequestPayload) {
-    if (!this.port) {
-      return;
-    }
-    this.port.postMessage(payload);
+  postManager(payload: Omit<RequestPayload, 'reqId' | 'type'>) {
+    const _payload = {
+      reqId: generateReqId(),
+      type: MessageType.NoResRequest,
+      ...payload,
+    };
+    this.port.postMessage(_payload);
   }
 
   /**
    * 请求tabManager，返回结果
    * @param payload
    */
-  requestManager(payload: RequestPayload): Promise<ResponsePayload> {
+  requestManager(
+    payload: Omit<RequestPayload, 'reqId' | 'type'>,
+  ): Promise<ResponsePayload> {
     return new Promise((resolve, reject) => {
-      if (!this.port) {
-        return Promise.reject(new Error('Worker not initialized'));
-      }
-
-      this.messageQueue.set(payload.reqId, resolve);
-      this.messageRejectQueue.set(payload.reqId, reject);
-      this.port.postMessage(payload);
+      const _payload = {
+        reqId: generateReqId(),
+        type: MessageType.Request,
+        ...payload,
+      };
+      this.promiseMap.set(_payload.reqId, { resolve, reject });
+      this.port.postMessage(_payload);
     });
   }
 
-  destroy() {
+  destroy = () => {
+    this.postManager({
+      data: {
+        action: SchedulerAction.Destroy,
+      },
+    });
     this.port?.close();
     this.worker = null;
-    this.port = null;
-    this._initStatus = false;
-    this._onMessage.dispose();
-  }
+    this.promiseMap.clear();
+    this._onNotice.dispose();
+  };
 }

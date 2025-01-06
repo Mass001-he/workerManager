@@ -1,10 +1,6 @@
 import { Emitter } from '../../event';
 import { Logger } from '../../logger';
-import {
-  type RequestPayload,
-  type ResponsePayload,
-  type TabDescriptor,
-} from '../types';
+import { type PayloadLike, type TabDescriptor } from '../types';
 import { Counter } from '../utils';
 
 export class TabManager {
@@ -14,7 +10,7 @@ export class TabManager {
 
   private _onMessage = new Emitter<{
     tabId: string;
-    message: RequestPayload;
+    event: MessageEvent<PayloadLike>;
   }>();
   private _onTabAdded = new Emitter<TabDescriptor>();
   public onMessage = this._onMessage.event;
@@ -35,17 +31,16 @@ export class TabManager {
     return this.tabs.findIndex((t) => t.id === id);
   }
 
-  private handleMessage(tab: TabDescriptor) {
-    const { prot } = tab;
-    prot.addEventListener('message', (e: MessageEvent) => {
-      const message = e.data as RequestPayload;
-      this._onMessage.fire({ tabId: tab.id, message });
+  private handleMessage = (tabId: string, ev: MessageEvent<PayloadLike>) => {
+    this._onMessage.fire({
+      tabId,
+      event: ev,
     });
-  }
+  };
 
-  public postMessage(options: {
+  public postMessage<T extends PayloadLike>(options: {
     tab?: TabDescriptor;
-    message: ResponsePayload;
+    message: T;
   }) {
     const { tab, message } = options;
     tab?.prot.postMessage(message);
@@ -58,7 +53,7 @@ export class TabManager {
       prot: tabPort,
     };
     this.tabs.push(tab);
-    this.handleMessage(tab);
+    tabPort.addEventListener('message', (ev) => this.handleMessage(tab.id, ev));
     this._onTabAdded.fire(tab);
     return tab.id;
   }
@@ -79,5 +74,6 @@ export class TabManager {
     }
     this.tabs = [];
     this._onMessage.dispose();
+    this._onTabAdded.dispose();
   }
 }

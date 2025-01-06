@@ -3,11 +3,12 @@ import { Logger } from '../../logger';
 import {
   MessageType,
   type ReqId,
-  type RequestPayload,
-  type ResponsePayload,
   type SharedWorkerGlobalScope,
+  type RequestPayload,
+  type DispatchResponsePayload,
+  type NoResRequestPayload,
 } from '../types';
-import { SchedulerDefReqId } from '../utils';
+import { TabAction } from './constant';
 import { EventQueue } from './eventQueue';
 import { LeaderElection } from './leaderElection';
 import { TabManager } from './tabManager';
@@ -31,7 +32,7 @@ export class Scheduler {
     this.register();
   }
 
-  private onTabResponse = (e: MessageEvent<ResponsePayload>) => {
+  private onDispatchResponse = (e: MessageEvent<DispatchResponsePayload>) => {
     const payload = e.data;
     const emitter = this.resEventMap.get(payload.reqId);
     if (emitter === undefined) {
@@ -41,29 +42,13 @@ export class Scheduler {
     emitter.fire(payload);
   };
 
+  private onNoResponseMessage = (e: MessageEvent<NoResRequestPayload>) => {};
+
   private register() {
     this.logger.info('register tab connect');
     const handleConnect = (e: MessageEvent) => {
       const port = e.ports[0];
-      const tabId = this.tabManager.addTab(port);
-      const handle = (e: MessageEvent<RequestPayload | ResponsePayload>) => {
-        const payload = e.data;
-        switch (payload.type) {
-          case MessageType.TAB_REQUEST:
-            this.eventQueue.enqueue(tabId, payload);
-            break;
-          case MessageType.TAB_RESPONSE:
-            this.onTabResponse(e as MessageEvent<ResponsePayload>);
-            break;
-          default:
-            break;
-        }
-      };
-
-      port.addEventListener('message', handle);
-      this.destroyFn.push(() => {
-        port.removeEventListener('message', handle);
-      });
+      this.tabManager.addTab(port);
     };
 
     globalThis.addEventListener('connect', handleConnect);
@@ -94,8 +79,24 @@ export class Scheduler {
   private registerTabManager() {
     this.logger.info('register tab manager');
 
-    this.tabManager.onMessage((e) => {
-      this.eventQueue.enqueue(e.tabId, e.message);
+    this.tabManager.onMessage((message) => {
+      const { event, tabId } = message;
+      const payload = event.data;
+      switch (payload.type) {
+        case MessageType.Request:
+          this.eventQueue.enqueue(tabId, payload as RequestPayload);
+          break;
+        case MessageType.DispatchResponse:
+          this.onDispatchResponse(
+            event as MessageEvent<DispatchResponsePayload>,
+          );
+          break;
+        case MessageType.NoResRequest:
+          this.onNoResponseMessage(event as MessageEvent<NoResRequestPayload>);
+          break;
+        default:
+          break;
+      }
     });
 
     this.tabManager.onTabAdded((e) => {
@@ -103,10 +104,11 @@ export class Scheduler {
       this.tabManager.postMessage({
         tab,
         message: {
-          success: true,
-          type: MessageType.CONNECTED,
-          reqId: SchedulerDefReqId,
-        } as ResponsePayload,
+          type: MessageType.Notice,
+          data: {
+            action: TabAction.Connected,
+          },
+        },
       });
     });
 
@@ -144,6 +146,8 @@ export class Scheduler {
         completeTask();
         emitter.dispose();
       });
+
+      this.tabManager.postMessage({ tab, message: task.payload });
     });
 
     this.destroyFn.push(() => {

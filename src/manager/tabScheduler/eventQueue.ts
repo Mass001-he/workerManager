@@ -1,6 +1,9 @@
 import { Emitter } from '../../event';
 import { Logger } from '../../logger';
-import { type QueueElement, type RequestPayload } from '../types';
+import {
+  type QueueElement,
+  type RequestPayload,
+} from '../types';
 
 export class EventQueue {
   static MAX_CONCURRENCY = 6;

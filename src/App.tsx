@@ -1,7 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { InitSharedWorker } from './manager/main';
-import { MessageType } from './manager/types';
-import { generateReqId } from './manager/utils';
 
 const App = () => {
   const [worker, setWorker] = useState<InitSharedWorker | null>(null);

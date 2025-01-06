@@ -18,22 +18,17 @@ export class LeaderElection {
   public campaigners: string[] = [];
   private logger = Logger.scope('LeaderElection');
 
-  private _onFirstLeaderElection = new Emitter<string>();
   private _onLeaderChange = new Emitter<{
     leader: string;
     oldLeader?: string;
   }>();
   private _onNoCandidate = new Emitter<void>();
-  public onFirstLeaderElection = this._onFirstLeaderElection.event;
   public onLeaderChange = this._onLeaderChange.event;
   public onNoCandidate = this._onNoCandidate.event;
   private _timer: any | undefined;
 
   constructor() {
     this.logger.info('LeaderElection created');
-    this._onFirstLeaderElection.event((id) => {
-      this.logger.info(`First leader election: ${id}`);
-    });
     this._onLeaderChange.event((e) => {
       this.logger.info(`Leader change:`, e);
     });
@@ -44,15 +39,12 @@ export class LeaderElection {
 
   private changeLeader(leader: string) {
     this.logger.info(`Change leader: ${leader}`);
-    const oldLeader = this.leader;
+
     this.leader = leader;
     //选举成功后,候选人清空，如果leader被消除，则会触发onNoCandidate事件，由上层指派新的leader
     this.campaigners = [];
-    if (oldLeader === undefined) {
-      this._onFirstLeaderElection.fire(this.leader);
-    } else {
-      this._onLeaderChange.fire({ leader: this.leader, oldLeader });
-    }
+
+    this._onLeaderChange.fire({ leader: this.leader });
   }
 
   /**
@@ -87,7 +79,7 @@ export class LeaderElection {
    * 淘汰机制之一：任期倒计时
    */
   public tenureCountdown() {
-    this.logger.info('Start timer');
+    this.logger.info('Resign of selection：tenure countdown');
     if (this._timer) {
       return;
     }
@@ -137,7 +129,6 @@ export class LeaderElection {
 
   public destroy() {
     this.logger.info('LeaderElection destroyed');
-    this._onFirstLeaderElection.dispose();
     this._onLeaderChange.dispose();
     this._onNoCandidate.dispose();
     clearTimeout(this._timer);

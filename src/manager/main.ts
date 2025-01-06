@@ -130,6 +130,12 @@ export class InitSharedWorker {
 
   private onDispatchRequest(payload: ResponsePayload) {
     console.log('onDispatchResponse', payload);
+    const _payload = {
+      ...payload,
+      type: MessageType.DispatchResponse,
+    };
+    console.log('postManager', _payload);
+    this.port.postMessage(_payload);
   }
 
   /**

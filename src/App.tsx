@@ -32,22 +32,6 @@ const App = () => {
           });
         }
       });
-
-      window.onbeforeunload = () => {
-        worker.postManager({
-          reqId: generateReqId(),
-          type: MessageType.DESTROY,
-        });
-      };
-
-      document.addEventListener("visibilitychange", () => {
-        if (document.visibilityState === "visible") {
-          worker.postManager({
-            type: MessageType.CAMPAIGN,
-            reqId: generateReqId(),
-          });
-        }
-      });
     })
   }, [])
   const sendMessage = async () => {
@@ -62,9 +46,21 @@ const App = () => {
 
     console.log('res===>', res)
   }
+
+  const postManager = () => {
+    console.log('put message')
+    workerRef.current?.postManager({
+      reqId: generateReqId(),
+      data: {
+        type: 'db',
+        sql:'select * from user',
+      }
+    });
+  }
   return (
     <div>
-      <button onClick={sendMessage}>send message</button>
+      <button onClick={postManager}>send message</button>
+      <button onClick={sendMessage}>await send message</button>
     </div>
   )
 }

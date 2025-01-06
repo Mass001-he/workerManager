@@ -20,7 +20,11 @@ export class InitSharedWorker {
   private _onNotice = new Emitter<NoticePayload>();
   onNotice = this._onNotice.event;
 
+  static instance: InitSharedWorker | null = null;
   static async create() {
+    if (InitSharedWorker.instance) {
+      return InitSharedWorker.instance;
+    }
     const ins = new InitSharedWorker();
     return new Promise<InitSharedWorker>((resolve) => {
       const handle = (e: any) => {
@@ -29,6 +33,7 @@ export class InitSharedWorker {
           type === MessageType.Notice &&
           data.action === TabAction.Connected
         ) {
+          InitSharedWorker.instance = ins;
           resolve(ins);
         }
         ins.port.removeEventListener('message', handle);
@@ -41,14 +46,6 @@ export class InitSharedWorker {
     this.promiseMap = new Map();
     this.init();
   }
-
-  private campaign = () => {
-    this.postManager({
-      data: {
-        action: SchedulerAction.Campaign,
-      },
-    });
-  };
 
   private init = () => {
     if (this.worker) {
@@ -77,6 +74,41 @@ export class InitSharedWorker {
     });
   };
 
+  private register() {
+    this.port.addEventListener('message', (ev) => {
+      const { type } = ev.data as PayloadLike;
+
+      switch (type) {
+        case MessageType.Notice:
+          this._onNotice.fire(ev.data as NoticePayload);
+          break;
+        case MessageType.Response:
+          this.onResponse(ev.data);
+          break;
+        case MessageType.DispatchRequest:
+          this.onDispatchRequest(ev.data);
+          break;
+        default:
+          break;
+      }
+    });
+
+    this.port.onmessageerror = (error) => {
+      console.error('Message port error:', error);
+    };
+
+    this.onNotice((e) => {
+      console.log('onNotice', e);
+    });
+  }
+  private campaign = () => {
+    this.postManager({
+      data: {
+        action: SchedulerAction.Campaign,
+      },
+    });
+  };
+
   private onResponse(payload: ResponsePayload) {
     console.log('onResponse', payload);
     const { success, reqId, data } = payload;
@@ -91,28 +123,8 @@ export class InitSharedWorker {
     }
   }
 
-  private register() {
-    this.port.addEventListener('message', (ev) => {
-      const { type } = ev.data as PayloadLike;
-
-      switch (type) {
-        case MessageType.Notice:
-          this._onNotice.fire(ev.data as NoticePayload);
-          break;
-        case MessageType.Response:
-          this.onResponse(ev.data);
-        default:
-          break;
-      }
-    });
-
-    this.port.onmessageerror = (error) => {
-      console.error('Message port error:', error);
-    };
-
-    this.onNotice((e) => {
-      console.log('onNotice', e);
-    });
+  private onDispatchRequest(payload: ResponsePayload) {
+    console.log('onDispatchResponse', payload);
   }
 
   /**
@@ -125,6 +137,7 @@ export class InitSharedWorker {
       type: MessageType.NoResRequest,
       ...payload,
     };
+    console.log('postManager', _payload);
     this.port.postMessage(_payload);
   }
 

@@ -47,11 +47,11 @@ export class TabManager {
   }
 
   public addTab(tabPort: MessagePort) {
-    this.logger.info('addTab', tabPort);
     const tab = {
       id: 'tab' + this.tabIdCounter.next(),
       prot: tabPort,
     };
+    this.logger.info('addTab', tab);
     this.tabs.push(tab);
     tabPort.addEventListener('message', (ev) => this.handleMessage(tab.id, ev));
     this._onTabAdded.fire(tab);

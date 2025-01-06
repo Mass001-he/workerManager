@@ -25,7 +25,7 @@ const App = () => {
   };
 
   const postManager = () => {
-    console.log('put message');
+    console.log('postManager');
     worker?.postManager({
       data: {
         action: 'db',
@@ -35,7 +35,7 @@ const App = () => {
   };
   return (
     <div>
-      <button onClick={postManager}>send message</button>
+      <button onClick={postManager}>postManager</button>
       <button onClick={sendMessage}>await send message</button>
     </div>
   );

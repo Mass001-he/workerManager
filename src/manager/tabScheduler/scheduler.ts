@@ -7,6 +7,7 @@ import {
   type RequestPayload,
   type DispatchResponsePayload,
   type NoResRequestPayload,
+  type ResponsePayload,
 } from '../types';
 import { TabAction } from './constant';
 import { EventQueue } from './eventQueue';
@@ -21,11 +22,11 @@ export class Scheduler {
   private leaderElection: LeaderElection;
   private eventQueue: EventQueue;
   private destroyFn: Array<() => void> = [];
-  private logger = Logger.scope('Center');
+  private logger = Logger.scope('Scheduler');
   private resEventMap = new Map<ReqId, Emitter<any>>();
 
   constructor() {
-    this.logger.info('Center created');
+    this.logger.info('created');
     this.tabManager = new TabManager();
     this.leaderElection = new LeaderElection();
     this.eventQueue = new EventQueue();
@@ -42,12 +43,15 @@ export class Scheduler {
     emitter.fire(payload);
   };
 
-  private onNoResponseMessage = (e: MessageEvent<NoResRequestPayload>) => {};
+  private onNoResRequest = (e: MessageEvent<NoResRequestPayload>) => {
+    this.logger.info('onNoResRequest', e);
+  };
 
   private register() {
     this.logger.info('register tab connect');
     const handleConnect = (e: MessageEvent) => {
       const port = e.ports[0];
+      port.start();
       this.tabManager.addTab(port);
     };
 
@@ -92,7 +96,7 @@ export class Scheduler {
           );
           break;
         case MessageType.NoResRequest:
-          this.onNoResponseMessage(event as MessageEvent<NoResRequestPayload>);
+          this.onNoResRequest(event as MessageEvent<NoResRequestPayload>);
           break;
         default:
           break;
@@ -138,13 +142,24 @@ export class Scheduler {
         this.resEventMap.delete(task.payload.reqId);
       }
 
-      const emitter = new Emitter<any>();
+      const emitter = new Emitter<ResponsePayload>();
       this.resEventMap.set(task.payload.reqId, emitter);
+
+      //test
+      setTimeout(() => {
+        emitter.fire({
+          data: 'hello world!',
+          success: true,
+          type: MessageType.Response,
+          reqId: task.payload.reqId,
+        });
+      });
 
       emitter.event((e) => {
         this.tabManager.postMessage({ tab, message: e });
         completeTask();
         emitter.dispose();
+        this.resEventMap.delete(task.payload.reqId);
       });
 
       this.tabManager.postMessage({ tab, message: task.payload });

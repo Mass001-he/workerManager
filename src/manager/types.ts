@@ -1,5 +1,13 @@
 export enum MessageType {
   /**
+   * 标签响应
+   */
+  TAB_RESPONSE = "TAB_RESPONSE",
+  /**
+   * 标签请求
+   */
+  TAB_REQUEST = "TAB_REQUEST",
+  /**
    * 销毁
    */
   DESTROY = "DESTROY",
@@ -13,6 +21,7 @@ export enum MessageType {
   CONNECTED = "CONNECTED",
 }
 
+export type ReqId = string;
 export const SharedHandleTypes = [MessageType.DESTROY, MessageType.CAMPAIGN];
 
 export interface RequestPayload<T = any> {
@@ -21,17 +30,17 @@ export interface RequestPayload<T = any> {
   data?: T;
 }
 
-export interface QueueElement<T = any> {
-  tabId: string;
-  payload: RequestPayload<T>;
-}
-
 export interface ResponsePayload<T = any> {
   type?: MessageType;
-  reqId?: string;
+  reqId: string;
   success: boolean;
   data?: T;
   message?: string;
+}
+
+export interface QueueElement<T = any> {
+  tabId: string;
+  payload: RequestPayload<T>;
 }
 
 //@ts-ignore

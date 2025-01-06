@@ -17,7 +17,9 @@ export class TabManager {
     tabId: string;
     message: RequestPayload;
   }>();
+  protected _onTabAdded = new Emitter<TabDescriptor>();
   onMessage = this._onMessage.event;
+  onTabAdded = this._onTabAdded.event;
 
   constructor() {
     this.logger.info("TabManager created");
@@ -52,11 +54,14 @@ export class TabManager {
       id: "tab" + this.tabIdCounter.next(),
       prot: tabPort,
     };
+    this.tabs.push(tab);
     this.handleMessage(tab);
-    this.postMessage(tab, { success: true, type: MessageType.CONNECTED });
+    this._onTabAdded.fire(tab);
+    return tab.id;
   }
 
   public removeTab(tab: TabDescriptor) {
+    this.logger.info("removeTab", tab);
     const idx = this.getTabIndexById(tab.id);
     if (idx !== -1) {
       this.logger.info("removeTab", { tab, idx });

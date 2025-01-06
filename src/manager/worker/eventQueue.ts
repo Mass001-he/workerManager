@@ -3,7 +3,7 @@ import { Logger } from "../../logger";
 import { type QueueElement, type RequestPayload } from "../types";
 
 export class EventQueue {
-  static MAX_CONCURRENCY = 5;
+  static MAX_CONCURRENCY = 6;
   /**
    * 修改并发数
    */
@@ -13,11 +13,12 @@ export class EventQueue {
   protected eventQueue: QueueElement[] = [];
   protected activeTasks: QueueElement[] = [];
   protected isDispatching = false;
+  protected _onTaskActivation = new Emitter<{
+    task: QueueElement;
+    completeTask: () => void;
+  }>();
 
-  protected _onProcessQueue = new Emitter();
-  protected _onTaskRun = new Emitter<QueueElement>();
-  public onProcessQueue = this._onProcessQueue.event;
-  public onTaskRun = this._onTaskRun.event;
+  public onTaskActivation = this._onTaskActivation.event;
 
   private logger = Logger.scope("EventQueue");
 
@@ -25,51 +26,78 @@ export class EventQueue {
     this.logger.info("EventQueue created");
   }
 
+  /**
+   * @description 添加任务到队列,等待执行
+   */
   public enqueue(tabId: string, payload: RequestPayload) {
+    this.logger.info("enqueue", tabId, payload);
     this.eventQueue.push({ tabId, payload });
-    this.processQueue();
+    this.dispatch();
   }
 
-  public processQueue() {
-    this._onProcessQueue.fire();
-    if (!this.isDispatching) {
-      this.dispatch();
+  /**
+   * @description 完成任务
+   */
+  public completeTask = (task: QueueElement) => {
+    const index = this.activeTasks.indexOf(task);
+    if (index !== -1) {
+      this.activeTasks.splice(index, 1);
     }
-  }
+    this.dispatch();
+  };
 
-  public completeTask(
-    task: QueueElement,
-    callback: boolean,
-    message?: string
-  ) {
-    
-  }
-
-  public destroy() {
-    this.eventQueue = [];
-    this.activeTasks = [];
-    this._onProcessQueue.dispose();
-    this._onTaskRun.dispose();
-  }
-
-  private pushTask(task: QueueElement) {
-    this.activeTasks.push(task);
-    if (this._onTaskRun.hasListeners()) {
-      this._onTaskRun.fire(task);
+  /**
+   * @description 激活任务
+   */
+  private activeTask = (task: QueueElement) => {
+    if (this._onTaskActivation.hasListeners() === false) {
+      this.completeTask(task);
+      //当任务激活时没有监听器时,任务将被完成，为了不阻断任务的执行,这里只是使用error级别的日志记录
+      this.logger.error(
+        "Severity error !!!!!! No listener for active task, task will be completed"
+      );
     } else {
-      throw new Error("No listener for task run event");
+      this._onTaskActivation.fire({
+        task,
+        completeTask: () => {
+          this.completeTask(task);
+        },
+      });
     }
+  };
+
+  /**
+   * @description 重新激活任务
+   */
+  public reActivation() {
+    this.activeTasks.forEach((task) => {
+      this.activeTask(task);
+    });
   }
 
+  /**
+   * @description 处理队列
+   */
   private dispatch() {
+    if (this.isDispatching === true) {
+      return;
+    }
     this.isDispatching = true;
     while (
       this.activeTasks.length < EventQueue.MAX_CONCURRENCY &&
       this.eventQueue.length > 0
     ) {
       const task = this.eventQueue.shift()!;
-      this.pushTask(task);
+      this.activeTasks.push(task);
+      this.activeTask(task);
     }
     this.isDispatching = false;
+  }
+
+  public destroy() {
+    this.logger.info("destroy");
+    this.eventQueue = [];
+    this.activeTasks = [];
+    this._onTaskActivation.dispose();
   }
 }

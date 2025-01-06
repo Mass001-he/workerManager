@@ -12,4 +12,6 @@ export const generateReqId = () => {
   const randomNum2 = Math.random().toString(36).substr(2, 9);
   const uniqueId = `${timestamp}-${randomNum1}-${randomNum2}`;
   return uniqueId;
-}
+};
+
+export const SchedulerDefReqId = "SchedulerDefReqId";

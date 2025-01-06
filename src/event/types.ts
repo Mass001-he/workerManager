@@ -36,6 +36,6 @@ export interface IEventDeliveryQueue {
  * @description_zh 一个可以订阅的事件，可以有零个或一个参数。事件本身是一个函数。
  * @description_en An event with zero or one parameters that can be subscribed to. The event is a function itself.
  */
-export interface IEvent<T> {
+export interface IEvent<T = void> {
   (listener: (e: T) => unknown, thisArgs?: any): IDisposable;
 }

@@ -62,6 +62,10 @@ export class Scheduler {
       case SchedulerAction.Campaign:
         this.leaderElection.campaign(tabId);
         break;
+      case SchedulerAction.Destroy:
+        if (tabId === this.leaderElection.leader && !!tabId) {
+          this.leaderElection.abdicate();
+        }
 
       default:
         break;

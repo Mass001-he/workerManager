@@ -74,11 +74,7 @@ export class InitSharedWorker {
 
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') {
-        this.postManager({
-          data: {
-            action: TabAction.Connected,
-          },
-        });
+        this.campaign();
       }
     });
   };
@@ -111,7 +107,7 @@ export class InitSharedWorker {
     });
   }
   private campaign = () => {
-    this.postManager({
+    this.post({
       data: {
         action: SchedulerAction.Campaign,
       },
@@ -140,13 +136,13 @@ export class InitSharedWorker {
    * 递交任务给tabManager, 不关心结果
    * @param payload
    */
-  postManager(payload: Omit<RequestPayload, 'reqId' | 'type'>) {
+  post(payload: Omit<RequestPayload, 'reqId' | 'type'>) {
     const _payload = {
       reqId: generateReqId(),
       type: MessageType.NoResRequest,
       ...payload,
     };
-    console.log('postManager', _payload);
+    console.log('post', _payload);
     this.port.postMessage(_payload);
   }
 
@@ -154,7 +150,7 @@ export class InitSharedWorker {
    * 请求tabManager，返回结果
    * @param payload
    */
-  requestManager(
+  request(
     payload: Omit<RequestPayload, 'reqId' | 'type'>,
   ): Promise<ResponsePayload> {
     return new Promise((resolve, reject) => {
@@ -169,7 +165,7 @@ export class InitSharedWorker {
   }
 
   destroy = () => {
-    this.postManager({
+    this.post({
       data: {
         action: SchedulerAction.Destroy,
       },

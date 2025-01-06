@@ -14,7 +14,7 @@ const App = () => {
 
   const sendMessage = async () => {
     console.log('send message');
-    const res = await worker?.requestManager({
+    const res = await worker?.request({
       data: {
         type: 'db',
         sql: 'select * from user',
@@ -26,7 +26,7 @@ const App = () => {
 
   const postManager = () => {
     console.log('postManager');
-    worker?.postManager({
+    worker?.post({
       data: {
         action: 'db',
         sql: 'select * from user',

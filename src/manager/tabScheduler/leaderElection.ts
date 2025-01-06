@@ -5,6 +5,15 @@ import { Logger } from '../../logger';
  * 领导选举类
  */
 export class LeaderElection {
+  /** 任期时间
+   * @default 5 * 60 * 1000 (5分钟)
+   */
+  static termOfOffice = 5 * 60 * 1000;
+  static setTermOfOffice(time: number) {
+    Logger.scope('LeaderElection').info('Set term of office:', time);
+    LeaderElection.termOfOffice = time;
+  }
+
   public leader: string | undefined = undefined;
   public campaigners: string[] = [];
   private logger = Logger.scope('LeaderElection');
@@ -18,6 +27,7 @@ export class LeaderElection {
   public onFirstLeaderElection = this._onFirstLeaderElection.event;
   public onLeaderChange = this._onLeaderChange.event;
   public onNoCandidate = this._onNoCandidate.event;
+  private _timer: any | undefined;
 
   constructor() {
     this.logger.info('LeaderElection created');
@@ -59,10 +69,43 @@ export class LeaderElection {
   }
 
   /**
+   * 退位
+   */
+  public abdicate() {
+    this.logger.info('Abdicate');
+    if (this.leader === undefined) {
+      this.logger.error('Abdicate: No leader');
+      return;
+    }
+    this.leader = undefined;
+    this.electLeader();
+  }
+
+  /**
+   * 淘汰机制之一：任期倒计时
+   */
+  public tenureCountdown() {
+    this.logger.info('Start timer');
+    if (this._timer) {
+      return;
+    }
+    this._timer = setTimeout(() => {
+      this.abdicate();
+    }, LeaderElection.termOfOffice);
+  }
+
+  /**
+   * 连任leader
+   */
+  public reElected() {
+    clearTimeout(this._timer);
+  }
+
+  /**
    * 参选
    * @description 最后参选的候选人会被下一次选举时当选。
    */
-  public campaign(candidate: string) {
+  public campaign = (candidate: string) => {
     if (candidate === undefined) {
       this.logger.error(`Campaign:`, candidate);
       return;
@@ -73,17 +116,23 @@ export class LeaderElection {
       this.campaigners.splice(idx, 1);
     }
     if (this.leader) {
-      this.campaigners.push(candidate);
-      this.logger.info(`Campaigners:`, this.campaigners);
+      if (this.leader === candidate) {
+        this.reElected();
+      } else {
+        this.campaigners.push(candidate);
+        this.tenureCountdown();
+        this.logger.info(`Campaigners:`, this.campaigners);
+      }
     } else {
       this.changeLeader(candidate);
     }
-  }
+  };
 
   public destroy() {
     this.logger.info('LeaderElection destroyed');
     this._onFirstLeaderElection.dispose();
     this._onLeaderChange.dispose();
     this._onNoCandidate.dispose();
+    clearTimeout(this._timer);
   }
 }

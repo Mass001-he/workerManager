@@ -156,5 +156,3 @@ export class Scheduler {
     this.destroyFn.forEach((fn) => fn());
   }
 }
-
-const scheduler = new Scheduler();

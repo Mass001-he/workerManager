@@ -1,6 +1,6 @@
-import { Emitter } from "../../event";
-import { Logger } from "../../logger";
-import type { TabDescriptor } from "../types";
+import { Emitter } from '../../event';
+import { Logger } from '../../logger';
+import type { TabDescriptor } from '../types';
 
 /**
  * 领导选举类
@@ -8,20 +8,20 @@ import type { TabDescriptor } from "../types";
 export class LeaderElection {
   public leader: TabDescriptor | undefined = undefined;
   public campaigners: TabDescriptor[] = [];
-  private logger = Logger.scope("LeaderElection");
+  private logger = Logger.scope('LeaderElection');
 
-  protected _onFirstLeaderElection = new Emitter<TabDescriptor>();
-  protected _onLeaderChange = new Emitter<{
+  private _onFirstLeaderElection = new Emitter<TabDescriptor>();
+  private _onLeaderChange = new Emitter<{
     leader: TabDescriptor;
     oldLeader?: TabDescriptor;
   }>();
-  protected _onNoCandidate = new Emitter<void>();
+  private _onNoCandidate = new Emitter<void>();
   public onFirstLeaderElection = this._onFirstLeaderElection.event;
   public onLeaderChange = this._onLeaderChange.event;
   public onNoCandidate = this._onNoCandidate.event;
 
   constructor() {
-    this.logger.info("LeaderElection created");
+    this.logger.info('LeaderElection created');
     this._onFirstLeaderElection.event((e) => {
       this.logger.info(`First leader election: ${e.id}`);
     });
@@ -29,7 +29,7 @@ export class LeaderElection {
       this.logger.info(`Leader change: ${e.leader.id} -> ${e.oldLeader?.id}`);
     });
     this._onNoCandidate.event(() => {
-      this.logger.info("No candidate");
+      this.logger.info('No candidate');
     });
   }
 
@@ -46,11 +46,11 @@ export class LeaderElection {
    * 选举领导人
    */
   public electLeader() {
-    this.logger.info("Elect leader");
+    this.logger.info('Elect leader');
     if (this.campaigners.length === 0) {
       this._onNoCandidate.fire();
       if (this.campaigners.length === 0 && !this.leader) {
-        throw new Error("Fatal mistake. No leader and no candidate");
+        throw new Error('Fatal mistake. No leader and no candidate');
       }
     }
     this.changeLeader();
@@ -75,7 +75,7 @@ export class LeaderElection {
   }
 
   public destroy() {
-    this.logger.info("LeaderElection destroyed");
+    this.logger.info('LeaderElection destroyed');
     this._onFirstLeaderElection.dispose();
     this._onLeaderChange.dispose();
     this._onNoCandidate.dispose();

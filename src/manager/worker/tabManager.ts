@@ -1,30 +1,29 @@
-import { Emitter } from "../../event";
-import { Logger } from "../../logger";
+import { Emitter } from '../../event';
+import { Logger } from '../../logger';
 import {
-  MessageType,
   type RequestPayload,
   type ResponsePayload,
   type TabDescriptor,
-} from "../types";
-import { Counter } from "../utils";
+} from '../types';
+import { Counter } from '../utils';
 
 export class TabManager {
   public tabs: TabDescriptor[] = [];
   public tabIdCounter = new Counter();
-  private logger = Logger.scope("TabManager");
+  private logger = Logger.scope('TabManager');
 
-  protected _onMessage = new Emitter<{
+  private _onMessage = new Emitter<{
     tabId: string;
     message: RequestPayload;
   }>();
-  protected _onTabAdded = new Emitter<TabDescriptor>();
-  onMessage = this._onMessage.event;
-  onTabAdded = this._onTabAdded.event;
+  private _onTabAdded = new Emitter<TabDescriptor>();
+  public onMessage = this._onMessage.event;
+  public onTabAdded = this._onTabAdded.event;
 
   constructor() {
-    this.logger.info("TabManager created");
+    this.logger.info('TabManager created');
     this.onMessage((e) => {
-      this.logger.info("onMessage", e);
+      this.logger.info('onMessage', e);
     });
   }
 
@@ -38,20 +37,24 @@ export class TabManager {
 
   private handleMessage(tab: TabDescriptor) {
     const { prot } = tab;
-    prot.addEventListener("message", (e: MessageEvent) => {
+    prot.addEventListener('message', (e: MessageEvent) => {
       const message = e.data as RequestPayload;
       this._onMessage.fire({ tabId: tab.id, message });
     });
   }
 
-  public postMessage(tab: TabDescriptor, message: ResponsePayload) {
-    tab.prot.postMessage(message);
+  public postMessage(options: {
+    tab?: TabDescriptor;
+    message: ResponsePayload;
+  }) {
+    const { tab, message } = options;
+    tab?.prot.postMessage(message);
   }
 
   public addTab(tabPort: MessagePort) {
-    this.logger.info("addTab", tabPort);
+    this.logger.info('addTab', tabPort);
     const tab = {
-      id: "tab" + this.tabIdCounter.next(),
+      id: 'tab' + this.tabIdCounter.next(),
       prot: tabPort,
     };
     this.tabs.push(tab);
@@ -61,16 +64,16 @@ export class TabManager {
   }
 
   public removeTab(tab: TabDescriptor) {
-    this.logger.info("removeTab", tab);
+    this.logger.info('removeTab', tab);
     const idx = this.getTabIndexById(tab.id);
     if (idx !== -1) {
-      this.logger.info("removeTab", { tab, idx });
+      this.logger.info('removeTab', { tab, idx });
       this.tabs.splice(idx, 1);
     }
   }
 
   public destroy() {
-    this.logger.info("destroy");
+    this.logger.info('destroy');
     for (const tab of this.tabs) {
       tab.prot.close();
     }

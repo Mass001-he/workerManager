@@ -1,6 +1,6 @@
-import { Emitter } from "../../event";
-import { Logger } from "../../logger";
-import { type QueueElement, type RequestPayload } from "../types";
+import { Emitter } from '../../event';
+import { Logger } from '../../logger';
+import { type QueueElement, type RequestPayload } from '../types';
 
 export class EventQueue {
   static MAX_CONCURRENCY = 6;
@@ -10,27 +10,27 @@ export class EventQueue {
   static changeConcurrency(value: number) {
     this.MAX_CONCURRENCY = value;
   }
-  protected eventQueue: QueueElement[] = [];
-  protected activeTasks: QueueElement[] = [];
-  protected isDispatching = false;
-  protected _onTaskActivation = new Emitter<{
+  private eventQueue: QueueElement[] = [];
+  private activeTasks: QueueElement[] = [];
+  private isDispatching = false;
+  private _onTaskActivation = new Emitter<{
     task: QueueElement;
     completeTask: () => void;
   }>();
 
   public onTaskActivation = this._onTaskActivation.event;
 
-  private logger = Logger.scope("EventQueue");
+  private logger = Logger.scope('EventQueue');
 
   constructor() {
-    this.logger.info("EventQueue created");
+    this.logger.info('EventQueue created');
   }
 
   /**
    * @description 添加任务到队列,等待执行
    */
   public enqueue(tabId: string, payload: RequestPayload) {
-    this.logger.info("enqueue", tabId, payload);
+    this.logger.info('enqueue', tabId, payload);
     this.eventQueue.push({ tabId, payload });
     this.dispatch();
   }
@@ -50,19 +50,19 @@ export class EventQueue {
    * @description 激活任务
    */
   private activeTask = (task: QueueElement) => {
-    if (this._onTaskActivation.hasListeners() === false) {
-      this.completeTask(task);
-      //当任务激活时没有监听器时,任务将被完成，为了不阻断任务的执行,这里只是使用error级别的日志记录
-      this.logger.error(
-        "Severity error !!!!!! No listener for active task, task will be completed"
-      );
-    } else {
+    if (this._onTaskActivation.hasListeners()) {
       this._onTaskActivation.fire({
         task,
         completeTask: () => {
           this.completeTask(task);
         },
       });
+    } else {
+      this.completeTask(task);
+      //当任务激活时没有监听器时,任务将被完成，为了不阻断任务的执行,这里只是使用error级别的日志记录
+      this.logger.error(
+        'Severity error !!!!!! No listener for active task, task will be completed',
+      );
     }
   };
 
@@ -95,7 +95,7 @@ export class EventQueue {
   }
 
   public destroy() {
-    this.logger.info("destroy");
+    this.logger.info('destroy');
     this.eventQueue = [];
     this.activeTasks = [];
     this._onTaskActivation.dispose();

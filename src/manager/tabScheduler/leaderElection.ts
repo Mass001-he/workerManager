@@ -8,7 +8,7 @@ export class LeaderElection {
   /** 任期时间
    * @default 5 * 60 * 1000 (5分钟)
    */
-  static termOfOffice = 5 * 60 * 1000;
+  static termOfOffice = 10000; //5 * 60 * 1000;
   static setTermOfOffice(time: number) {
     Logger.scope('LeaderElection').info('Set term of office:', time);
     LeaderElection.termOfOffice = time;
@@ -46,6 +46,8 @@ export class LeaderElection {
     this.logger.info(`Change leader: ${leader}`);
     const oldLeader = this.leader;
     this.leader = leader;
+    //选举成功后,候选人清空，如果leader被消除，则会触发onNoCandidate事件，由上层指派新的leader
+    this.campaigners = [];
     if (oldLeader === undefined) {
       this._onFirstLeaderElection.fire(this.leader);
     } else {
@@ -98,6 +100,7 @@ export class LeaderElection {
    * 连任leader
    */
   public reElected() {
+    this.logger.info('Re-elected');
     clearTimeout(this._timer);
   }
 
@@ -106,6 +109,10 @@ export class LeaderElection {
    * @description 最后参选的候选人会被下一次选举时当选。
    */
   public campaign = (candidate: string) => {
+    //如果当前leader是候选人，且没有其他候选人，不进行选举
+    if (this.leader === candidate && this.campaigners.length === 0) {
+      return;
+    }
     if (candidate === undefined) {
       this.logger.error(`Campaign:`, candidate);
       return;

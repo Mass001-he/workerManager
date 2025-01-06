@@ -8,6 +8,7 @@ import {
   type DispatchResponsePayload,
   type NoResRequestPayload,
   type ResponsePayload,
+  DispatchRequestPayload,
 } from '../types';
 import { SchedulerAction, TabAction } from './constant';
 import { EventQueue } from './eventQueue';
@@ -177,7 +178,14 @@ export class Scheduler {
         this.resEventMap.delete(task.payload.reqId);
       });
 
-      this.tabManager.postMessage({ tab, message: task.payload });
+      this.tabManager.postMessage<DispatchRequestPayload>({
+        tab,
+        message: {
+          type: MessageType.DispatchRequest,
+          reqId: task.payload.reqId,
+          data: task.payload.data,
+        },
+      });
     });
 
     this.destroyFn.push(() => {

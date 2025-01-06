@@ -19,7 +19,7 @@ export class TabManager {
   constructor() {
     this.logger.info('TabManager created');
     this.onMessage((e) => {
-      this.logger.info('onMessage', e);
+      this.logger.info('onMessage', { id: e.tabId, data: e.event.data });
     });
   }
 

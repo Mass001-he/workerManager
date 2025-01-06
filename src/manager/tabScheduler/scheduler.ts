@@ -9,7 +9,7 @@ import {
   type NoResRequestPayload,
   type ResponsePayload,
 } from '../types';
-import { TabAction } from './constant';
+import { SchedulerAction, TabAction } from './constant';
 import { EventQueue } from './eventQueue';
 import { LeaderElection } from './leaderElection';
 import { TabManager } from './tabManager';
@@ -33,8 +33,15 @@ export class Scheduler {
     this.register();
   }
 
-  private onDispatchResponse = (e: MessageEvent<DispatchResponsePayload>) => {
+  private onDispatchResponse = (
+    tabId: string,
+    e: MessageEvent<DispatchResponsePayload>,
+  ) => {
     const payload = e.data;
+    this.logger.info('onDispatchResponse', {
+      tabId,
+      payload,
+    });
     const emitter = this.resEventMap.get(payload.reqId);
     if (emitter === undefined) {
       this.logger.warn('response event not found', payload);
@@ -43,8 +50,22 @@ export class Scheduler {
     emitter.fire(payload);
   };
 
-  private onNoResRequest = (e: MessageEvent<NoResRequestPayload>) => {
-    this.logger.info('onNoResRequest', e);
+  private onNoResRequest = (
+    tabId: string,
+    e: MessageEvent<NoResRequestPayload>,
+  ) => {
+    this.logger.info('onNoResRequest', {
+      tabId,
+      payload: e.data,
+    });
+    switch (e.data.data.action) {
+      case SchedulerAction.Campaign:
+        this.leaderElection.campaign(tabId);
+        break;
+
+      default:
+        break;
+    }
   };
 
   private register() {
@@ -70,7 +91,7 @@ export class Scheduler {
   private registerLeaderElection() {
     this.logger.info('register leader election');
     this.leaderElection.onNoCandidate(() => {
-      this.leaderElection.campaign(this.tabManager.tabs[0]);
+      this.leaderElection.campaign(this.tabManager.tabs[0].id);
     });
     this.leaderElection.onLeaderChange(() => {
       this.eventQueue.reActivation();
@@ -92,11 +113,15 @@ export class Scheduler {
           break;
         case MessageType.DispatchResponse:
           this.onDispatchResponse(
+            tabId,
             event as MessageEvent<DispatchResponsePayload>,
           );
           break;
         case MessageType.NoResRequest:
-          this.onNoResRequest(event as MessageEvent<NoResRequestPayload>);
+          this.onNoResRequest(
+            tabId,
+            event as MessageEvent<NoResRequestPayload>,
+          );
           break;
         default:
           break;
@@ -144,16 +169,6 @@ export class Scheduler {
 
       const emitter = new Emitter<ResponsePayload>();
       this.resEventMap.set(task.payload.reqId, emitter);
-
-      //test
-      setTimeout(() => {
-        emitter.fire({
-          data: 'hello world!',
-          success: true,
-          type: MessageType.Response,
-          reqId: task.payload.reqId,
-        });
-      });
 
       emitter.event((e) => {
         this.tabManager.postMessage({ tab, message: e });

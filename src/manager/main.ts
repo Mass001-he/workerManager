@@ -21,25 +21,34 @@ export class InitSharedWorker {
   onNotice = this._onNotice.event;
 
   static instance: InitSharedWorker | null = null;
+  private static instancePromise: Promise<InitSharedWorker> | null = null;
+
   static async create() {
     if (InitSharedWorker.instance) {
       return InitSharedWorker.instance;
     }
-    const ins = new InitSharedWorker();
-    return new Promise<InitSharedWorker>((resolve) => {
-      const handle = (e: any) => {
-        const { type, data } = e.data as PayloadLike;
-        if (
-          type === MessageType.Notice &&
-          data.action === TabAction.Connected
-        ) {
-          InitSharedWorker.instance = ins;
-          resolve(ins);
-        }
-        ins.port.removeEventListener('message', handle);
-      };
-      ins.port.addEventListener('message', handle);
-    });
+    if (InitSharedWorker.instancePromise) {
+      return InitSharedWorker.instancePromise;
+    }
+    InitSharedWorker.instancePromise = new Promise<InitSharedWorker>(
+      (resolve) => {
+        const ins = new InitSharedWorker();
+        const handle = (e: any) => {
+          const { type, data } = e.data as PayloadLike;
+          if (
+            type === MessageType.Notice &&
+            data.action === TabAction.Connected
+          ) {
+            InitSharedWorker.instance = ins;
+            InitSharedWorker.instancePromise = null;
+            resolve(ins);
+          }
+          ins.port.removeEventListener('message', handle);
+        };
+        ins.port.addEventListener('message', handle);
+      },
+    );
+    return InitSharedWorker.instancePromise;
   }
 
   private constructor() {

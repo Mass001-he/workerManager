@@ -155,8 +155,8 @@ export class InitSharedWorker {
         console.log('_payload', _payload);
         this.post(_payload);
       } catch (error: any) {
-        const _payload = {
-          task: task,
+        const _payload: DispatchResponsePayload = {
+          data: null,
           message: error?.message || 'unknown error',
           success: false,
           type: MessageType.DispatchResponse,
@@ -190,7 +190,7 @@ export class InitSharedWorker {
    * 请求tabManager，返回结果
    * @param payload
    */
-  request(serviceName: string, params: any) {
+  request(serviceName: string, params: any): Promise<ResponsePayload> {
     return this._request({
       data: {
         params,

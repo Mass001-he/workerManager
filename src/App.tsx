@@ -9,7 +9,8 @@ const App = () => {
       const worker = await InitSharedWorker.create();
       worker.createService('return1', () => {
         console.log('handle return1');
-        throw '没有实现';
+
+        throw new Error('没有实现');
       });
       setWorker(worker);
     };
@@ -18,14 +19,16 @@ const App = () => {
 
   const sendMessage = async () => {
     console.log('send message');
-    const res = await worker?.request('return1', {
-      data: {
-        type: 'db',
-        sql: 'select * from user',
-      },
-    });
+    try {
+      const res = await worker?.request('return1', {
+        data: {
+          type: 'db',
+          sql: 'select * from user',
+        },
+      });
 
-    console.log('res===>', res);
+      console.log('res===>', res);
+    } catch (error) {}
   };
 
   const postManager = () => {

@@ -6,9 +6,8 @@ import {
   type DispatchResponsePayload,
   type NoResRequestPayload,
   DispatchRequestPayload,
-  type CurrentDispatchRequest,
+  type Prettier,
 } from '../types';
-import { Counter } from '../utils';
 import { SchedulerAction, TabAction } from './constant';
 import { EventQueue } from './eventQueue';
 import { LeaderElection } from './leaderElection';
@@ -16,49 +15,56 @@ import { TabManager } from './tabManager';
 
 declare var self: SharedWorkerGlobalScope;
 declare var globalThis: typeof self;
+export type SchedulerEventQueueTask = Prettier<
+  RequestPayload & { tabId: string }
+>;
 
 export class Scheduler {
   private tabManager: TabManager;
   private leaderElection: LeaderElection;
-  private eventQueue: EventQueue;
+  private eventQueue: EventQueue<SchedulerEventQueueTask>;
   private destroyFn: Array<() => void> = [];
   private logger = Logger.scope('Scheduler');
-  private dispatchReqId = new Counter();
-  private currentDispatchRequest: CurrentDispatchRequest = null;
+  private dispatchMap = new Map<string, SchedulerEventQueueTask>();
 
   constructor() {
     this.logger.info('created');
     this.tabManager = new TabManager();
     this.leaderElection = new LeaderElection();
-    this.eventQueue = new EventQueue();
+    this.eventQueue = new EventQueue({
+      filter(item, task) {
+        return item.reqId === task.reqId;
+      },
+    });
     this.register();
   }
 
-  private onDispatchResponse = (
-    tabId: string,
-    e: MessageEvent<DispatchResponsePayload>,
-  ) => {
+  private onDispatchResponse = (e: MessageEvent<DispatchResponsePayload>) => {
     const payload = e.data;
-    this.logger.info('onDispatchResponse', {
-      tabId,
-      payload,
-    });
-    const { reqId, data } = payload;
-    const { items } = data;
-    if (this.currentDispatchRequest === null) {
-      this.logger.warn('current dispatch request not found', payload);
+    this.logger.info('onDispatchResponse', payload);
+    const reqId = payload.reqId;
+    const task = this.dispatchMap.get(reqId);
+    if (task === undefined) {
+      this.logger.warn('task not found', reqId);
       return;
     }
-    if (reqId !== this.currentDispatchRequest.reqId) {
-      this.logger.warn('reqId not match', payload);
-      return;
+    const tab = this.tabManager.getTabById(task.tabId);
+    if (tab === undefined) {
+      this.logger.warn('The responder was not found', task, payload, '');
+    } else {
+      this.tabManager.postMessage({
+        tab,
+        message: {
+          ...payload,
+          type: MessageType.Response,
+        },
+      });
     }
-    const tasks = this.currentDispatchRequest.tasks;
-    tasks.forEach((task) => {
-      const item = items.find((item) => item.id === task.id);
-    });
 
-    this.eventQueue.complete();
+    this.eventQueue.completeTask({
+      reqId: payload.reqId,
+    });
+    this.dispatchMap.delete(reqId);
   };
 
   private onNoResRequest = (
@@ -91,11 +97,13 @@ export class Scheduler {
       const payload = event.data;
       switch (payload.type) {
         case MessageType.Request:
-          this.eventQueue.enqueue(tabId, payload as RequestPayload);
+          this.eventQueue.enqueue({
+            ...(payload as RequestPayload),
+            tabId,
+          });
           break;
         case MessageType.DispatchResponse:
           this.onDispatchResponse(
-            tabId,
             event as MessageEvent<DispatchResponsePayload>,
           );
           break;
@@ -162,23 +170,10 @@ export class Scheduler {
     });
   }
 
-  private generateReqId() {
-    return `dispatchReqId_${this.dispatchReqId.next()}`;
-  }
-
   private registerEventQueue() {
     this.logger.info('register event queue');
     this.eventQueue.onTaskActivation((ev) => {
       const { tasks } = ev;
-      const mergeTasks = tasks.map((task) => {
-        return { tab: this.tabManager.getTabById(task.id), task };
-      });
-      //当client发送请求后client被关闭，此处将记录日志。
-      mergeTasks.forEach((mergeTask) => {
-        if (mergeTask.tab === undefined) {
-          this.logger.warn('tab not found', mergeTask);
-        }
-      });
       if (this.leaderElection.leader === undefined) {
         this.logger.warn('leader not found', tasks, 're elect leader');
         this.leaderElection.electLeader();
@@ -190,24 +185,17 @@ export class Scheduler {
         this.leaderElection.electLeader();
         return;
       }
-      const dispatchReqId = this.generateReqId();
 
-      if (this.currentDispatchRequest !== null) {
-        //如果已经存在对应的响应事件,则销毁。例如tab关闭，重新选举leader后，之前的响应事件将不再需要
-        this.logger.warn(
-          'destroy current dispatch request',
-          this.currentDispatchRequest,
-        );
-      }
-      this.currentDispatchRequest = {
-        reqId: dispatchReqId,
-        tasks,
-      };
+      tasks.forEach((task) => {
+        if (this.dispatchMap.has(task.reqId) === false) {
+          this.dispatchMap.set(task.reqId, task);
+        }
+      });
+
       this.tabManager.postMessage<DispatchRequestPayload>({
         tab: leader,
         message: {
           type: MessageType.DispatchRequest,
-          reqId: dispatchReqId,
           data: {
             tasks,
           },

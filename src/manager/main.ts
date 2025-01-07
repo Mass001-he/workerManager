@@ -142,15 +142,15 @@ export class InitSharedWorker {
 
     tasks.map(async (task) => {
       try {
-        const { serviceName, params } = task.payload.data;
+        const { serviceName, params } = task.data;
 
         const handle = this.server.getService(serviceName);
         const res = await handle(params);
         const _payload: DispatchResponsePayload = {
-          success: true,
           data: res,
           type: MessageType.DispatchResponse,
-          reqId: task.payload.reqId,
+          reqId: task.reqId,
+          success: true,
         };
         console.log('_payload', _payload);
         this.post(_payload);

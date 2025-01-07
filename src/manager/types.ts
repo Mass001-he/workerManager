@@ -1,4 +1,4 @@
-import type { TabAction } from './tabScheduler/constant';
+import type { SchedulerAction, TabAction } from './tabScheduler/constant';
 
 export enum MessageType {
   /** 不需要调度器响应的请求 */
@@ -15,11 +15,6 @@ export enum MessageType {
   Notice = 'Notice',
 }
 
-export type CurrentDispatchRequest = {
-  reqId: string;
-  tasks: QueueTask[];
-} | null;
-
 export interface PayloadLike {
   type: MessageType;
   [key: string]: any;
@@ -34,6 +29,7 @@ export interface BaseRequestPayload<T = any> {
 export interface BaseResponsePayload {
   type: MessageType;
   success: boolean;
+  message?: string;
 }
 
 export interface NoticePayload extends BaseResponsePayload {
@@ -43,33 +39,27 @@ export interface NoticePayload extends BaseResponsePayload {
   type: MessageType.Notice;
 }
 
-export interface DispatchBody {
-  serviceName: string;
-  params: any[];
-}
-
-export interface DispatchBodyWithResult<T = any> extends DispatchBody {
-  result: T;
-}
 export interface DispatchRequestPayload extends BaseRequestPayload {
   type: MessageType.DispatchRequest;
-  reqId: string;
   data: {
-    tasks: QueueTask<RequestPayload<DispatchBody>>[];
+    tasks: RequestPayload<RequestBody>[];
   };
 }
 
 export interface DispatchResponsePayload<T = any> extends BaseResponsePayload {
   reqId: string;
-  data: {
-    tasks: QueueTask<RequestPayload<DispatchBodyWithResult<T>>>[];
-  };
+  data: T;
   type: MessageType.DispatchResponse;
 }
 
-export interface RequestPayload<T = any> extends BaseRequestPayload<T> {
+export interface RequestBody<T = any> {
+  serviceName: string;
+  params: T;
+}
+
+export interface RequestPayload<T = any> extends BaseRequestPayload {
   reqId: string;
-  data: T;
+  data: RequestBody<T>;
 }
 
 export interface ResponsePayload<T = any> extends BaseResponsePayload {
@@ -78,20 +68,6 @@ export interface ResponsePayload<T = any> extends BaseResponsePayload {
 }
 
 export interface NoResRequestPayload extends BaseRequestPayload {}
-
-export type MessageTypeMap = {
-  [MessageType.NoResRequest]: NoResRequestPayload;
-  [MessageType.Request]: RequestPayload;
-  [MessageType.Response]: ResponsePayload;
-  [MessageType.DispatchRequest]: DispatchRequestPayload;
-  [MessageType.DispatchResponse]: DispatchResponsePayload;
-  [MessageType.Notice]: NoticePayload;
-};
-
-export interface QueueTask<T = RequestPayload> {
-  id: string;
-  payload: T;
-}
 
 //@ts-ignore
 export interface SharedWorkerGlobalScope extends EventTarget {
@@ -116,4 +92,12 @@ export type OptionProperty<T, K extends keyof T> = Prettier<
   Partial<Pick<T, K>> & Omit<T, K>
 >;
 
-export type PayloadOptions = OptionProperty<RequestPayload, 'reqId' | 'type'>;
+export interface PayloadOptions {
+  reqId?: string;
+  type?: MessageType;
+  data?: {
+    action?: SchedulerAction;
+    [key: string]: any;
+  };
+  [key: string]: any;
+}

@@ -1,4 +1,3 @@
-import type { Emitter } from '../event';
 import type { TabAction } from './tabScheduler/constant';
 
 export enum MessageType {
@@ -44,18 +43,26 @@ export interface NoticePayload extends BaseResponsePayload {
   type: MessageType.Notice;
 }
 
+export interface DispatchBody {
+  serviceName: string;
+  params: any[];
+}
+
+export interface DispatchBodyWithResult<T = any> extends DispatchBody {
+  result: T;
+}
 export interface DispatchRequestPayload extends BaseRequestPayload {
   type: MessageType.DispatchRequest;
   reqId: string;
   data: {
-    tasks: QueueTask<RequestPayload<{ serviceName: string; params: any[] }>>[];
+    tasks: QueueTask<RequestPayload<DispatchBody>>[];
   };
 }
 
 export interface DispatchResponsePayload<T = any> extends BaseResponsePayload {
   reqId: string;
   data: {
-    items: T[];
+    tasks: QueueTask<RequestPayload<DispatchBodyWithResult<T>>>[];
   };
   type: MessageType.DispatchResponse;
 }
@@ -81,9 +88,9 @@ export type MessageTypeMap = {
   [MessageType.Notice]: NoticePayload;
 };
 
-export interface QueueTask<T = any> {
+export interface QueueTask<T = RequestPayload> {
   id: string;
-  payload: RequestPayload<T>;
+  payload: T;
 }
 
 //@ts-ignore
@@ -100,3 +107,13 @@ export interface TabDescriptor {
   id: string;
   prot: MessagePort;
 }
+
+export type Prettier<T> = {
+  [P in keyof T]: T[P];
+};
+
+export type OptionProperty<T, K extends keyof T> = Prettier<
+  Partial<Pick<T, K>> & Omit<T, K>
+>;
+
+export type PayloadOptions = OptionProperty<RequestPayload, 'reqId' | 'type'>;

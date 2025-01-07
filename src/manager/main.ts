@@ -1,10 +1,13 @@
 import { Emitter } from '../event';
+import Server from './service';
 import { SchedulerAction, TabAction } from './tabScheduler/constant';
 import {
+  DispatchRequestPayload,
+  DispatchResponsePayload,
   MessageType,
+  PayloadOptions,
   type NoticePayload,
   type PayloadLike,
-  type RequestPayload,
   type ResponsePayload,
 } from './types';
 import { generateReqId } from './utils';
@@ -22,6 +25,9 @@ export class InitSharedWorker {
 
   static instance: InitSharedWorker | null = null;
   private static instancePromise: Promise<InitSharedWorker> | null = null;
+
+  private server = new Server();
+  createService = this.server.createService.bind(this.server);
 
   static async create() {
     if (InitSharedWorker.instance) {
@@ -128,26 +134,53 @@ export class InitSharedWorker {
     }
   }
 
-  private onDispatchRequest(payload: ResponsePayload) {
-    console.log('onDispatchResponse', payload);
-    const _payload = {
-      ...payload,
-      type: MessageType.DispatchResponse,
-    };
-    console.log('postManager', _payload);
-    this.port.postMessage(_payload);
+  private async onDispatchRequest(payload: DispatchRequestPayload) {
+    console.log('onDispatchRequest', payload);
+
+    const { data } = payload;
+    const { tasks } = data;
+
+    tasks.map(async (task) => {
+      try {
+        const { serviceName, params } = task.payload.data;
+
+        const handle = this.server.getService(serviceName);
+        const res = await handle(params);
+        const _payload: DispatchResponsePayload = {
+          success: true,
+          data: res,
+          type: MessageType.DispatchResponse,
+          reqId: task.payload.reqId,
+        };
+        console.log('_payload', _payload);
+        this.post(_payload);
+      } catch (error: any) {
+        const _payload = {
+          ...payload,
+          message: error?.message || 'unknown error',
+          success: false,
+          type: MessageType.DispatchResponse,
+        };
+        console.log('postManager', _payload);
+        this.post(_payload);
+      }
+    });
   }
 
   /**
    * 递交任务给tabManager, 不关心结果
    * @param payload
    */
-  post(payload: Omit<RequestPayload, 'reqId' | 'type'>) {
+  post(payload: PayloadOptions) {
     const _payload = {
-      reqId: generateReqId(),
-      type: MessageType.NoResRequest,
       ...payload,
     };
+    if (payload.reqId === undefined) {
+      _payload.reqId = generateReqId();
+    }
+    if (payload.type === undefined) {
+      _payload.type = MessageType.NoResRequest;
+    }
     console.log('post', _payload);
     this.port.postMessage(_payload);
   }
@@ -156,16 +189,18 @@ export class InitSharedWorker {
    * 请求tabManager，返回结果
    * @param payload
    */
-  request(
-    payload: Omit<RequestPayload, 'reqId' | 'type'>,
-  ): Promise<ResponsePayload> {
+  request(payload: PayloadOptions): Promise<ResponsePayload> {
     return new Promise((resolve, reject) => {
       const _payload = {
-        reqId: generateReqId(),
-        type: MessageType.Request,
         ...payload,
       };
-      this.promiseMap.set(_payload.reqId, { resolve, reject });
+      if (payload.reqId === undefined) {
+        _payload.reqId = generateReqId();
+      }
+      if (payload.type === undefined) {
+        _payload.type = MessageType.Request;
+      }
+      this.promiseMap.set(_payload.reqId!, { resolve, reject });
       this.port.postMessage(_payload);
     });
   }

@@ -7,6 +7,10 @@ const App = () => {
   useEffect(() => {
     const boot = async () => {
       const worker = await InitSharedWorker.create();
+      worker.createService('return1', () => {
+        console.log('handle return1');
+        throw '没有实现';
+      });
       setWorker(worker);
     };
     boot();
@@ -14,7 +18,7 @@ const App = () => {
 
   const sendMessage = async () => {
     console.log('send message');
-    const res = await worker?.request({
+    const res = await worker?.request('return1', {
       data: {
         type: 'db',
         sql: 'select * from user',
@@ -26,12 +30,12 @@ const App = () => {
 
   const postManager = () => {
     console.log('postManager');
-    worker?.post({
+    /*  worker?.post({
       data: {
         action: 'db',
         sql: 'select * from user',
       },
-    });
+    }); */
   };
   return (
     <div>

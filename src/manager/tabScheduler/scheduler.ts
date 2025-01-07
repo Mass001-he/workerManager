@@ -45,7 +45,7 @@ export class Scheduler {
     const reqId = payload.reqId;
     const task = this.dispatchMap.get(reqId);
     if (task === undefined) {
-      this.logger.warn('task not found', reqId);
+      this.logger.warn('task not found', reqId, this.dispatchMap);
       return;
     }
     const tab = this.tabManager.getTabById(task.tabId);

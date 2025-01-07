@@ -69,7 +69,7 @@ export class EventQueue<T = any> {
       this.activeTasks.splice(idx, 1);
       this.logger.info('task completed:', item);
     } else {
-      this.logger.error('task not found:', item);
+      this.logger.error('queueItem not found:', item);
     }
     if (this.activeTasks.length === 0) {
       this.isDispatching = false;

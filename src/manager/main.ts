@@ -140,7 +140,7 @@ export class InitSharedWorker {
     const { data } = payload;
     const { tasks } = data;
 
-    tasks.map(async (task) => {
+    tasks.forEach(async (task) => {
       try {
         const { serviceName, params } = task.data;
 
@@ -156,10 +156,11 @@ export class InitSharedWorker {
         this.post(_payload);
       } catch (error: any) {
         const _payload = {
-          ...payload,
+          task: task,
           message: error?.message || 'unknown error',
           success: false,
           type: MessageType.DispatchResponse,
+          reqId: task.reqId,
         };
         console.log('postManager', _payload);
         this.post(_payload);
@@ -189,7 +190,21 @@ export class InitSharedWorker {
    * 请求tabManager，返回结果
    * @param payload
    */
-  request(payload: PayloadOptions): Promise<ResponsePayload> {
+  request(serviceName: string, params: any) {
+    return this._request({
+      data: {
+        params,
+        serviceName,
+      },
+    });
+  }
+
+  /**
+   *
+   * @param payload
+   * @returns
+   */
+  private _request = (payload: PayloadOptions): Promise<ResponsePayload> => {
     return new Promise((resolve, reject) => {
       const _payload = {
         ...payload,
@@ -203,7 +218,7 @@ export class InitSharedWorker {
       this.promiseMap.set(_payload.reqId!, { resolve, reject });
       this.port.postMessage(_payload);
     });
-  }
+  };
 
   destroy = () => {
     this.post({

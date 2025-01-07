@@ -8,10 +8,10 @@ export class LeaderElection {
   /** 任期时间
    * @default 5 * 60 * 1000 (5分钟)
    */
-  static termOfOffice = 10000; //5 * 60 * 1000;
+  static TermOfOffice = 10000; //5 * 60 * 1000;
   static setTermOfOffice(time: number) {
     Logger.scope('LeaderElection').info('Set term of office:', time);
-    LeaderElection.termOfOffice = time;
+    LeaderElection.TermOfOffice = time;
   }
 
   public leader: string | undefined = undefined;
@@ -85,7 +85,7 @@ export class LeaderElection {
     }
     this._timer = setTimeout(() => {
       this.abdicate();
-    }, LeaderElection.termOfOffice);
+    }, LeaderElection.TermOfOffice);
   }
 
   /**

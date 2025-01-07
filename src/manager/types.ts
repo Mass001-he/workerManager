@@ -1,3 +1,4 @@
+import type { Emitter } from '../event';
 import type { TabAction } from './tabScheduler/constant';
 
 export enum MessageType {
@@ -15,7 +16,10 @@ export enum MessageType {
   Notice = 'Notice',
 }
 
-export type ReqId = string;
+export type CurrentDispatchRequest = {
+  reqId: string;
+  tasks: QueueTask[];
+} | null;
 
 export interface PayloadLike {
   type: MessageType;
@@ -40,15 +44,19 @@ export interface NoticePayload extends BaseResponsePayload {
   type: MessageType.Notice;
 }
 
-export interface DispatchRequestPayload<T = any> extends BaseRequestPayload<T> {
+export interface DispatchRequestPayload extends BaseRequestPayload {
   type: MessageType.DispatchRequest;
   reqId: string;
-  data: T;
+  data: {
+    tasks: QueueTask<RequestPayload<{ serviceName: string; params: any[] }>>[];
+  };
 }
 
 export interface DispatchResponsePayload<T = any> extends BaseResponsePayload {
   reqId: string;
-  data: T;
+  data: {
+    items: T[];
+  };
   type: MessageType.DispatchResponse;
 }
 
@@ -73,8 +81,8 @@ export type MessageTypeMap = {
   [MessageType.Notice]: NoticePayload;
 };
 
-export interface QueueElement<T = any> {
-  tabId: string;
+export interface QueueTask<T = any> {
+  id: string;
   payload: RequestPayload<T>;
 }
 

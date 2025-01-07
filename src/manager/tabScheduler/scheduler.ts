@@ -1,15 +1,14 @@
-import { Emitter } from '../../event';
 import { Logger } from '../../logger';
 import {
   MessageType,
-  type ReqId,
   type SharedWorkerGlobalScope,
   type RequestPayload,
   type DispatchResponsePayload,
   type NoResRequestPayload,
-  type ResponsePayload,
   DispatchRequestPayload,
+  type CurrentDispatchRequest,
 } from '../types';
+import { Counter } from '../utils';
 import { SchedulerAction, TabAction } from './constant';
 import { EventQueue } from './eventQueue';
 import { LeaderElection } from './leaderElection';
@@ -24,7 +23,8 @@ export class Scheduler {
   private eventQueue: EventQueue;
   private destroyFn: Array<() => void> = [];
   private logger = Logger.scope('Scheduler');
-  private resEventMap = new Map<ReqId, Emitter<any>>();
+  private dispatchReqId = new Counter();
+  private currentDispatchRequest: CurrentDispatchRequest = null;
 
   constructor() {
     this.logger.info('created');
@@ -43,12 +43,22 @@ export class Scheduler {
       tabId,
       payload,
     });
-    const emitter = this.resEventMap.get(payload.reqId);
-    if (emitter === undefined) {
-      this.logger.warn('response event not found', payload);
+    const { reqId, data } = payload;
+    const { items } = data;
+    if (this.currentDispatchRequest === null) {
+      this.logger.warn('current dispatch request not found', payload);
       return;
     }
-    emitter.fire(payload);
+    if (reqId !== this.currentDispatchRequest.reqId) {
+      this.logger.warn('reqId not match', payload);
+      return;
+    }
+    const tasks = this.currentDispatchRequest.tasks;
+    tasks.forEach((task) => {
+      const item = items.find((item) => item.id === task.id);
+    });
+
+    this.eventQueue.complete();
   };
 
   private onNoResRequest = (
@@ -72,6 +82,52 @@ export class Scheduler {
         break;
     }
   };
+
+  private registerTabManager() {
+    this.logger.info('register tab manager');
+
+    this.tabManager.onMessage((message) => {
+      const { event, tabId } = message;
+      const payload = event.data;
+      switch (payload.type) {
+        case MessageType.Request:
+          this.eventQueue.enqueue(tabId, payload as RequestPayload);
+          break;
+        case MessageType.DispatchResponse:
+          this.onDispatchResponse(
+            tabId,
+            event as MessageEvent<DispatchResponsePayload>,
+          );
+          break;
+        case MessageType.NoResRequest:
+          this.onNoResRequest(
+            tabId,
+            event as MessageEvent<NoResRequestPayload>,
+          );
+          break;
+        default:
+          this.logger.warn('unknown message', message);
+          break;
+      }
+    });
+
+    this.tabManager.onTabAdded((e) => {
+      const tab = this.tabManager.getTabById(e.id);
+      this.tabManager.postMessage({
+        tab,
+        message: {
+          type: MessageType.Notice,
+          data: {
+            action: TabAction.Connected,
+          },
+        },
+      });
+    });
+
+    this.destroyFn.push(() => {
+      this.tabManager.destroy();
+    });
+  }
 
   private register() {
     this.logger.info('register tab connect');
@@ -106,88 +162,55 @@ export class Scheduler {
     });
   }
 
-  private registerTabManager() {
-    this.logger.info('register tab manager');
-
-    this.tabManager.onMessage((message) => {
-      const { event, tabId } = message;
-      const payload = event.data;
-      switch (payload.type) {
-        case MessageType.Request:
-          this.eventQueue.enqueue(tabId, payload as RequestPayload);
-          break;
-        case MessageType.DispatchResponse:
-          this.onDispatchResponse(
-            tabId,
-            event as MessageEvent<DispatchResponsePayload>,
-          );
-          break;
-        case MessageType.NoResRequest:
-          this.onNoResRequest(
-            tabId,
-            event as MessageEvent<NoResRequestPayload>,
-          );
-          break;
-        default:
-          break;
-      }
-    });
-
-    this.tabManager.onTabAdded((e) => {
-      const tab = this.tabManager.getTabById(e.id);
-      this.tabManager.postMessage({
-        tab,
-        message: {
-          type: MessageType.Notice,
-          data: {
-            action: TabAction.Connected,
-          },
-        },
-      });
-    });
-
-    this.destroyFn.push(() => {
-      this.tabManager.destroy();
-    });
+  private generateReqId() {
+    return `dispatchReqId_${this.dispatchReqId.next()}`;
   }
 
   private registerEventQueue() {
     this.logger.info('register event queue');
-    this.eventQueue.onTaskActivation((e) => {
-      const { task, completeTask } = e;
-      const tab = this.tabManager.getTabById(task.tabId);
-      if (tab === undefined) {
-        this.logger.warn('tab not found', task);
-      }
+    this.eventQueue.onTaskActivation((ev) => {
+      const { tasks } = ev;
+      const mergeTasks = tasks.map((task) => {
+        return { tab: this.tabManager.getTabById(task.id), task };
+      });
+      //当client发送请求后client被关闭，此处将记录日志。
+      mergeTasks.forEach((mergeTask) => {
+        if (mergeTask.tab === undefined) {
+          this.logger.warn('tab not found', mergeTask);
+        }
+      });
       if (this.leaderElection.leader === undefined) {
-        this.logger.warn('leader not found', task, 're elect leader');
+        this.logger.warn('leader not found', tasks, 're elect leader');
         this.leaderElection.electLeader();
         return;
       }
-
-      if (this.resEventMap.has(task.payload.reqId)) {
-        //如果已经存在对应的响应事件,则销毁。例如tab关闭，重新选举leader后，之前的响应事件将不再需要
-        const emitter = this.resEventMap.get(task.payload.reqId)!;
-        emitter.dispose();
-        this.resEventMap.delete(task.payload.reqId);
+      const leader = this.tabManager.getTabById(this.leaderElection.leader);
+      if (leader === undefined) {
+        this.logger.warn('leader not found', tasks, 're elect leader');
+        this.leaderElection.electLeader();
+        return;
       }
+      const dispatchReqId = this.generateReqId();
 
-      const emitter = new Emitter<ResponsePayload>();
-      this.resEventMap.set(task.payload.reqId, emitter);
-
-      emitter.event((e) => {
-        this.tabManager.postMessage({ tab, message: e });
-        completeTask();
-        emitter.dispose();
-        this.resEventMap.delete(task.payload.reqId);
-      });
-
+      if (this.currentDispatchRequest !== null) {
+        //如果已经存在对应的响应事件,则销毁。例如tab关闭，重新选举leader后，之前的响应事件将不再需要
+        this.logger.warn(
+          'destroy current dispatch request',
+          this.currentDispatchRequest,
+        );
+      }
+      this.currentDispatchRequest = {
+        reqId: dispatchReqId,
+        tasks,
+      };
       this.tabManager.postMessage<DispatchRequestPayload>({
-        tab,
+        tab: leader,
         message: {
           type: MessageType.DispatchRequest,
-          reqId: task.payload.reqId,
-          data: task.payload.data,
+          reqId: dispatchReqId,
+          data: {
+            tasks,
+          },
         },
       });
     });

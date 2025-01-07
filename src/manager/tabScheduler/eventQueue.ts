@@ -1,24 +1,23 @@
 import { Emitter } from '../../event';
 import { Logger } from '../../logger';
-import {
-  type QueueElement,
-  type RequestPayload,
-} from '../types';
+import { type QueueTask, type RequestPayload } from '../types';
 
 export class EventQueue {
-  static MAX_CONCURRENCY = 6;
+  static MAX_CONCURRENCY = 5;
   /**
    * 修改并发数
    */
   static changeConcurrency(value: number) {
     this.MAX_CONCURRENCY = value;
   }
-  private eventQueue: QueueElement[] = [];
-  private activeTasks: QueueElement[] = [];
+  private eventQueue: QueueTask[] = [];
+  private activeTasks: QueueTask[] = [];
+  /** 任务是否正在分发 */
   private isDispatching = false;
+  /** Loop是否正在排程 */
+  private isLoopScheduled = false;
   private _onTaskActivation = new Emitter<{
-    task: QueueElement;
-    completeTask: () => void;
+    tasks: QueueTask[];
   }>();
 
   public onTaskActivation = this._onTaskActivation.event;
@@ -32,39 +31,55 @@ export class EventQueue {
   /**
    * @description 添加任务到队列,等待执行
    */
-  public enqueue(tabId: string, payload: RequestPayload) {
-    this.logger.info('enqueue', tabId, payload);
-    this.eventQueue.push({ tabId, payload });
-    this.dispatch();
+  public enqueue(id: string, payload: RequestPayload) {
+    this.logger.info('enqueue', id, payload);
+    this.eventQueue.push({ id, payload });
+    if (this.isDispatching === false) {
+      this.isDispatching = true;
+      setTimeout(() => this.queueLoop());
+    }
+  }
+
+  private queueLoop() {
+    if (this.isLoopScheduled) {
+      return;
+    }
+    this.isLoopScheduled = true;
+    while (
+      this.activeTasks.length < EventQueue.MAX_CONCURRENCY &&
+      this.eventQueue.length > 0
+    ) {
+      const task = this.eventQueue.shift()!;
+      this.activeTasks.push(task);
+    }
+    this.fireActiveTask();
+    this.isLoopScheduled = false;
   }
 
   /**
    * @description 完成任务
    */
-  public completeTask = (task: QueueElement) => {
-    const index = this.activeTasks.indexOf(task);
-    if (index !== -1) {
-      this.activeTasks.splice(index, 1);
-    }
-    this.dispatch();
+  public complete = () => {
+    this.logger.info('complete tasks:', this.activeTasks);
+    this.activeTasks = [];
+    this.isDispatching = false;
+    setTimeout(() => this.queueLoop());
   };
 
   /**
    * @description 激活任务
    */
-  private activeTask = (task: QueueElement) => {
+  private fireActiveTask = () => {
     if (this._onTaskActivation.hasListeners()) {
       this._onTaskActivation.fire({
-        task,
-        completeTask: () => {
-          this.completeTask(task);
-        },
+        tasks: this.activeTasks,
       });
     } else {
-      this.completeTask(task);
+      this.complete();
       //当任务激活时没有监听器时,任务将被完成，为了不阻断任务的执行,这里只是使用error级别的日志记录
       this.logger.error(
         'Severity error !!!!!! No listener for active task, task will be completed',
+        this.activeTasks,
       );
     }
   };
@@ -73,28 +88,7 @@ export class EventQueue {
    * @description 重新激活任务
    */
   public reActivation() {
-    this.activeTasks.forEach((task) => {
-      this.activeTask(task);
-    });
-  }
-
-  /**
-   * @description 处理队列
-   */
-  private dispatch() {
-    if (this.isDispatching === true) {
-      return;
-    }
-    this.isDispatching = true;
-    while (
-      this.activeTasks.length < EventQueue.MAX_CONCURRENCY &&
-      this.eventQueue.length > 0
-    ) {
-      const task = this.eventQueue.shift()!;
-      this.activeTasks.push(task);
-      this.activeTask(task);
-    }
-    this.isDispatching = false;
+    this.fireActiveTask();
   }
 
   public destroy() {

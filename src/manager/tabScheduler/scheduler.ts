@@ -85,7 +85,7 @@ export class Scheduler {
         if (tabId === this.leaderElection.leader && !!tabId) {
           this.leaderElection.abdicate();
         }
-
+        this.tabManager.removeTab(tabId);
       default:
         break;
     }

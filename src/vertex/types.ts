@@ -1,4 +1,4 @@
-import type { SchedulerAction, TabAction } from './tabScheduler/constant';
+import type { SchedulerAction, TabAction } from './controller/constant';
 
 export enum MessageType {
   /** 不需要调度器响应的请求 */

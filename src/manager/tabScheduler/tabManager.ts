@@ -68,11 +68,11 @@ export class TabManager {
     return tab.id;
   }
 
-  public removeTab(tab: TabDescriptor) {
-    this.logger.info('removeTab', tab).print();
-    const idx = this.getTabIndexById(tab.id);
+  public removeTab(id: string) {
+    this.logger.info('removeTab', id).print();
+    const idx = this.getTabIndexById(id);
     if (idx !== -1) {
-      this.logger.info('removeTab', { tab, idx }).print();
+      this.logger.info('removeTab', { id, idx }).print();
       this.tabs.splice(idx, 1);
     }
   }

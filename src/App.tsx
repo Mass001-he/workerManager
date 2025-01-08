@@ -18,13 +18,9 @@ const App = () => {
         // const db = await connectDB();
         // createServices(server, db);
         server.addService('return1', () => {
-          console.log('handle return1');
-
           return 111;
           throw new Error('没有实现');
         });
-
-        console.log('addService=======>>');
       });
 
       // worker.createService('return1', () => {

@@ -121,11 +121,11 @@ export class Client {
     });
 
     this.port.onmessageerror = (error) => {
-      this.logger.error('Message port error:', error);
+      this.logger.error('Message port error:', error).print();
     };
 
     this.onNotice((e: NoticePayload) => {
-      this.logger.info('onNotice', e);
+      this.logger.info('onNotice', e).print();
       if (e.data.action === TabAction.Connected) {
         this.#tabId = e.data.id;
       }
@@ -155,7 +155,7 @@ export class Client {
   };
 
   private onResponse(payload: ResponsePayload) {
-    this.logger.info('onResponse', payload);
+    this.logger.info('onResponse', payload).print();
     const { success, reqId, data } = payload;
     const mHandlerPromiser = this.promiseMap.get(reqId);
     if (mHandlerPromiser) {
@@ -173,7 +173,7 @@ export class Client {
   }
 
   private onServerDidCreate(server: Server) {
-    this.logger.info('ServerDidCreate');
+    this.logger.info('ServerDidCreate').print();
     this.server = server;
 
     this.handleTasks(this._cacheTask);
@@ -184,7 +184,7 @@ export class Client {
     tasks.forEach(async (task) => {
       try {
         if (this.server === undefined) {
-          this.logger.info('server is undefined');
+          this.logger.info('server is undefined').print();
           return;
         }
         const { serviceName, params } = task.data;
@@ -197,7 +197,7 @@ export class Client {
           reqId: task.reqId,
           success: true,
         };
-        this.logger.info('_payload', _payload);
+        this.logger.info('_payload', _payload).print();
         this.post(_payload);
       } catch (error: any) {
         const _payload: DispatchResponsePayload = {
@@ -207,14 +207,14 @@ export class Client {
           type: MessageType.DispatchResponse,
           reqId: task.reqId,
         };
-        this.logger.info('postManager', _payload);
+        this.logger.info('postManager', _payload).print();
         this.post(_payload);
       }
     });
   }
 
   private async onDispatchRequest(payload: DispatchRequestPayload) {
-    this.logger.info('onDispatchRequest', payload);
+    this.logger.info('onDispatchRequest', payload).print();
     const { data } = payload;
     const { tasks } = data;
     if (this.server === undefined) {
@@ -239,7 +239,7 @@ export class Client {
     if (payload.type === undefined) {
       _payload.type = MessageType.NoResRequest;
     }
-    this.logger.info('post', _payload);
+    this.logger.info('post', _payload).print();
     this.port.postMessage(_payload);
   }
 

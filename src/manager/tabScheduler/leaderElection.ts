@@ -79,7 +79,6 @@ export class LeaderElection {
    * 淘汰机制之一：任期倒计时
    */
   public tenureCountdown() {
-    this.logger.info('tenureCountdown').print();
     if (this._timer) {
       this.logger.info('tenureCountdown: timer exists', this._timer).print();
       return;

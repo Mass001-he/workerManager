@@ -1,3 +1,10 @@
 import { Scheduler } from './tabScheduler';
 
-new Scheduler();
+const scheduler = new Scheduler();
+
+declare var globalThis: SharedWorkerGlobalScope;
+interface SharedWorkerGlobalScope {
+  scheduler: Scheduler;
+}
+
+globalThis.scheduler = scheduler;

@@ -83,17 +83,19 @@ export class EventQueue<T = any> {
    * @description 激活任务
    */
   private fireActiveTask = () => {
-    if (this._onTaskActivation.hasListeners()) {
-      this._onTaskActivation.fire({
-        tasks: this.activeTasks,
-      });
-    } else {
-      //当任务激活时没有监听器时,任务将被完成，为了不阻断任务的执行,这里只是使用error级别的日志记录
+    if (this._onTaskActivation.hasListeners() === false) {
       this.logger.error(
         'Severity error !!!!!! No listener for active task, task will be completed',
         this.activeTasks,
       );
+      throw new Error('No listener for active task');
     }
+    if (this.activeTasks.length === 0) {
+      return;
+    }
+    this._onTaskActivation.fire({
+      tasks: this.activeTasks,
+    });
   };
 
   /**

@@ -24,8 +24,8 @@ export class Client {
   private _onNotice = new Emitter<NoticePayload>();
   onNotice = this._onNotice.event;
 
-  private _onElectioned = new Emitter<Server>();
-  onElectioned = this._onElectioned.event;
+  private _onElection = new Emitter<Server>();
+  onElection = this._onElection.event;
 
   static instance: Client | null = null;
   private static instancePromise: Promise<Client> | null = null;
@@ -36,7 +36,10 @@ export class Client {
   server: Server | undefined;
   createService: (() => void) | undefined;
 
-  private _isLeader: boolean;
+  #isLeader: boolean;
+  get isLeader() {
+    return this.#isLeader;
+  }
   private _cacheTask: any[];
 
   get tabId() {
@@ -74,7 +77,7 @@ export class Client {
   private constructor() {
     this.promiseMap = new Map();
     this._cacheTask = [];
-    this._isLeader = false;
+    this.#isLeader = false;
     this.init();
   }
 
@@ -133,14 +136,13 @@ export class Client {
         // leader 变化，1. 需要重新 初始化 createService 2. 如果变化前当前tab是leader，需要 注销 service
         const currentLeader = e.data.id;
         if (this.#tabId === currentLeader) {
-          this._isLeader = true;
-          // this.onServerWillCreate()
+          this.#isLeader = true;
           const server = new Server();
           this.onServerDidCreate(server);
 
-          this._onElectioned.fire(server);
+          this._onElection.fire(server);
         } else {
-          this._isLeader = false;
+          this.#isLeader = false;
           this.server?.destroy();
         }
       }
@@ -166,10 +168,6 @@ export class Client {
       }
       this.promiseMap.delete(reqId);
     }
-  }
-
-  private onServerWillCreate() {
-    // 收集 server 未创建完成之前收到的任务
   }
 
   private onServerDidCreate(server: Server) {

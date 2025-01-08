@@ -14,7 +14,7 @@ const App = () => {
   useEffect(() => {
     const boot = async () => {
       const worker = await Client.create();
-      worker.onElectioned(async (server: Server) => {
+      worker.onElection(async (server: Server) => {
         // const db = await connectDB();
         // createServices(server, db);
         server.addService('return1', () => {

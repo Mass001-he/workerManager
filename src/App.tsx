@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react';
 import { Node } from './vertex/node';
+const sharedWorker = new SharedWorker(new URL('./worker.ts', import.meta.url), {
+  name: 'managerWorker',
+});
 
 const App = () => {
   const [worker, setWorker] = useState<Node | null>(null);
 
   useEffect(() => {
     const boot = async () => {
-      const worker = await Node.create();
+      const worker = await Node.create(sharedWorker);
       worker.onElection(async (server: any) => {
         // const db = await connectDB();
         // createServices(server, db);

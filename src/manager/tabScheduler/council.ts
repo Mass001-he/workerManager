@@ -4,19 +4,19 @@ import { Logger } from '../../logger';
 /**
  * 领导选举类
  */
-export class LeaderElection {
+export class Council {
   /** 任期时间
    * @default 5 * 60 * 1000 (5分钟)
    */
-  static TermOfOffice = 10000; //5 * 60 * 1000;
+  static TermOfOffice = 1000000; //5 * 60 * 1000;
   static setTermOfOffice(time: number) {
-    Logger.scope('LeaderElection').info('Set term of office:', time);
-    LeaderElection.TermOfOffice = time;
+    Logger.scope('Council').info('Set term of office:', time);
+    Council.TermOfOffice = time;
   }
 
   public leader: string | undefined = undefined;
   public campaigners: string[] = [];
-  private logger = Logger.scope('LeaderElection');
+  private logger = Logger.scope('Council');
 
   private _onLeaderChange = new Emitter<{
     leader: string;
@@ -28,7 +28,7 @@ export class LeaderElection {
   private _timer: any | undefined;
 
   constructor() {
-    this.logger.info('LeaderElection created').print();
+    this.logger.info('Council created').print();
     this._onLeaderChange.event((e) => {
       this.logger.info(`Leader change:`, e).print();
     });
@@ -88,7 +88,7 @@ export class LeaderElection {
       .print();
     this._timer = setTimeout(() => {
       this.abdicate();
-    }, LeaderElection.TermOfOffice);
+    }, Council.TermOfOffice);
   }
 
   /**
@@ -134,7 +134,7 @@ export class LeaderElection {
   };
 
   public destroy() {
-    this.logger.info('LeaderElection destroyed').print();
+    this.logger.info('Council destroyed').print();
     this._onLeaderChange.dispose();
     this._onNoCandidate.dispose();
     clearTimeout(this._timer);

@@ -10,7 +10,7 @@ import {
 } from '../types';
 import { SchedulerAction, TabAction } from './constant';
 import { EventQueue } from './eventQueue';
-import { LeaderElection } from './leaderElection';
+import { Council } from './council';
 import { TabManager } from './tabManager';
 
 declare var self: SharedWorkerGlobalScope;
@@ -21,7 +21,7 @@ export type SchedulerEventQueueTask = Prettier<
 
 export class Scheduler {
   private tabManager: TabManager;
-  private leaderElection: LeaderElection;
+  private council: Council;
   private eventQueue: EventQueue<SchedulerEventQueueTask>;
   private destroyFn: Array<() => void> = [];
   private logger = Logger.scope('Scheduler');
@@ -30,7 +30,7 @@ export class Scheduler {
   constructor() {
     this.logger.info('created').print();
     this.tabManager = new TabManager();
-    this.leaderElection = new LeaderElection();
+    this.council = new Council();
     this.eventQueue = new EventQueue({
       filter(item, task) {
         return item.reqId === task.reqId;
@@ -39,9 +39,12 @@ export class Scheduler {
     this.register();
   }
 
-  private onDispatchResponse = (e: MessageEvent<DispatchResponsePayload>) => {
+  private onDispatchResponse = (
+    tabId: string,
+    e: MessageEvent<DispatchResponsePayload>,
+  ) => {
     const payload = e.data;
-    this.logger.info('onDispatchResponse', payload).print();
+    this.logger.info(`onDispatchResponse,tabId:${tabId}`, payload).print();
     const reqId = payload.reqId;
     const task = this.dispatchMap.get(reqId);
     if (task === undefined) {
@@ -79,11 +82,11 @@ export class Scheduler {
     });
     switch (e.data.data.action) {
       case SchedulerAction.Campaign:
-        this.leaderElection.campaign(tabId);
+        this.council.campaign(tabId);
         break;
       case SchedulerAction.Destroy:
-        if (tabId === this.leaderElection.leader && !!tabId) {
-          this.leaderElection.abdicate();
+        if (tabId === this.council.leader && !!tabId) {
+          this.council.abdicate();
         }
         this.tabManager.removeTab(tabId);
       default:
@@ -106,6 +109,7 @@ export class Scheduler {
           break;
         case MessageType.DispatchResponse:
           this.onDispatchResponse(
+            tabId,
             event as MessageEvent<DispatchResponsePayload>,
           );
           break;
@@ -155,28 +159,28 @@ export class Scheduler {
       globalThis.removeEventListener('connect', handleConnect);
     });
 
-    this.registerLeaderElection();
+    this.registercouncil();
     this.registerTabManager();
     this.registerEventQueue();
   }
 
-  private registerLeaderElection() {
+  private registercouncil() {
     this.logger.info('register leader election').print();
-    this.leaderElection.onNoCandidate(() => {
-      this.leaderElection.campaign(this.tabManager.tabs[0].id);
+    this.council.onNoCandidate(() => {
+      this.council.campaign(this.tabManager.tabs[0].id);
     });
-    this.leaderElection.onLeaderChange(() => {
+    this.council.onLeaderChange(() => {
       this.tabManager.broadcastMessage({
         type: MessageType.Notice,
         data: {
           action: TabAction.LeaderChange,
-          id: this.leaderElection.leader,
+          id: this.council.leader,
         },
       });
       this.eventQueue.reActivation();
     });
     this.destroyFn.push(() => {
-      this.leaderElection.destroy();
+      this.council.destroy();
     });
   }
 
@@ -184,15 +188,15 @@ export class Scheduler {
     this.logger.info('register event queue').print();
     this.eventQueue.onTaskActivation((ev) => {
       const { tasks } = ev;
-      if (this.leaderElection.leader === undefined) {
+      if (this.council.leader === undefined) {
         this.logger.warn('leader not found', tasks, 're elect leader').print();
-        this.leaderElection.electLeader();
+        this.council.electLeader();
         return;
       }
-      const leader = this.tabManager.getTabById(this.leaderElection.leader);
+      const leader = this.tabManager.getTabById(this.council.leader);
       if (leader === undefined) {
         this.logger.warn('leader not found', tasks, 're elect leader').print();
-        this.leaderElection.electLeader();
+        this.council.electLeader();
         return;
       }
 

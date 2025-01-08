@@ -5,7 +5,7 @@ import {
   type LoggerOptions,
 } from './types';
 import { getLoggerData } from './utils';
-const MaxScopeLength = 15;
+const MaxScopeLength = 13;
 
 function rendererTransformer(data: LoggerData) {
   const date = [

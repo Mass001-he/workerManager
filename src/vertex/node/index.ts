@@ -1,7 +1,7 @@
-import { Emitter } from '../../event';
-import { Logger } from '../../logger';
+import { Emitter } from '../event';
+import { Logger } from '../logger';
 import { Service } from './server';
-import { SchedulerAction, TabAction } from '../center/constant';
+import { SchedulerAction, TabAction } from '../controller/constant';
 import {
   DispatchRequestPayload,
   DispatchResponsePayload,
@@ -85,7 +85,7 @@ export class Node {
     if (this.worker) {
       return;
     }
-    this.worker = new SharedWorker(new URL('./worker.ts', import.meta.url), {
+    this.worker = new SharedWorker('./worker.ts', {
       name: 'managerWorker',
     });
     this.port = this.worker.port;

@@ -1,20 +1,13 @@
 import { useEffect, useState } from 'react';
-import { Client } from './manager/main';
-import Server from './manager/service';
-
-// const connectDB = async () => {
-//   return 'db';
-// };
-
-// const createServices = (server: Server, db: string) => {};
+import { Node } from './nodeScheduler/node';
 
 const App = () => {
-  const [worker, setWorker] = useState<Client | null>(null);
+  const [worker, setWorker] = useState<Node | null>(null);
 
   useEffect(() => {
     const boot = async () => {
-      const worker = await Client.create();
-      worker.onElection(async (server: Server) => {
+      const worker = await Node.create();
+      worker.onElection(async (server: any) => {
         // const db = await connectDB();
         // createServices(server, db);
         server.addService('return1', () => {

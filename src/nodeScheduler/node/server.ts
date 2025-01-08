@@ -3,8 +3,8 @@ export interface ServiceHandler<P = any, R = any> {
   (args: P): R;
 }
 
-class Server {
-  private logger = Logger.scope('Server');
+export class Service {
+  private logger = Logger.scope('Service');
   private serverMap: Map<string, ServiceHandler> = new Map();
 
   constructor() {
@@ -24,7 +24,7 @@ class Server {
     serviceName: string,
     handle: ServiceHandler<P, R>,
   ) {
-    this.logger.info('createService', serviceName).print();
+    this.logger.info('addService', serviceName).print();
     this.serverMap.set(serviceName, handle);
   }
 
@@ -33,5 +33,3 @@ class Server {
     this.serverMap.clear();
   }
 }
-
-export default Server;

@@ -1,7 +1,7 @@
-import { Emitter } from '../event';
-import { Logger } from '../logger';
-import Server from './service';
-import { SchedulerAction, TabAction } from './tabScheduler/constant';
+import { Emitter } from '../../event';
+import { Logger } from '../../logger';
+import { Service } from './server';
+import { SchedulerAction, TabAction } from '../center/constant';
 import {
   DispatchRequestPayload,
   DispatchResponsePayload,
@@ -10,10 +10,10 @@ import {
   type NoticePayload,
   type PayloadLike,
   type ResponsePayload,
-} from './types';
-import { Counter } from './utils';
+} from '../types';
+import { Counter } from '../utils';
 
-export class Client {
+export class Node {
   private worker: SharedWorker | null = null;
   private port!: MessagePort;
   private promiseMap: Map<
@@ -24,16 +24,16 @@ export class Client {
   private _onNotice = new Emitter<NoticePayload>();
   onNotice = this._onNotice.event;
 
-  private _onElection = new Emitter<Server>();
+  private _onElection = new Emitter<Service>();
   onElection = this._onElection.event;
 
-  static instance: Client | null = null;
-  private static instancePromise: Promise<Client> | null = null;
+  static instance: Node | null = null;
+  private static instancePromise: Promise<Node> | null = null;
 
-  private logger = Logger.scope('Client');
+  private logger = Logger.scope('Node');
 
   #tabId!: string;
-  server: Server | undefined;
+  server: Service | undefined;
   createService: (() => void) | undefined;
 
   #isLeader: boolean;
@@ -49,29 +49,29 @@ export class Client {
   public tabIdCounter = new Counter();
 
   static async create() {
-    if (Client.instance) {
-      return Client.instance;
+    if (Node.instance) {
+      return Node.instance;
     }
-    if (Client.instancePromise) {
-      return Client.instancePromise;
+    if (Node.instancePromise) {
+      return Node.instancePromise;
     }
-    Client.instancePromise = new Promise<Client>((resolve) => {
-      const ins = new Client();
+    Node.instancePromise = new Promise<Node>((resolve) => {
+      const ins = new Node();
       const handle = (e: any) => {
         const { type, data } = e.data as PayloadLike;
         if (
           type === MessageType.Notice &&
           data.action === TabAction.Connected
         ) {
-          Client.instance = ins;
-          Client.instancePromise = null;
+          Node.instance = ins;
+          Node.instancePromise = null;
           resolve(ins);
         }
         ins.port.removeEventListener('message', handle);
       };
       ins.port.addEventListener('message', handle);
     });
-    return Client.instancePromise;
+    return Node.instancePromise;
   }
 
   private constructor() {
@@ -137,7 +137,7 @@ export class Client {
         const currentLeader = e.data.id;
         if (this.#tabId === currentLeader) {
           this.#isLeader = true;
-          const server = new Server();
+          const server = new Service();
           this.onServerDidCreate(server);
 
           this._onElection.fire(server);
@@ -170,7 +170,7 @@ export class Client {
     }
   }
 
-  private onServerDidCreate(server: Server) {
+  private onServerDidCreate(server: Service) {
     this.logger.info('ServerDidCreate').print();
     this.server = server;
 

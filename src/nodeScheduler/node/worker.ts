@@ -1,4 +1,4 @@
-import { Scheduler } from './tabScheduler';
+import { Scheduler } from '../center';
 
 const scheduler = new Scheduler();
 

@@ -62,6 +62,8 @@ export class Node {
           type === MessageType.Notice &&
           data.action === TabAction.Connected
         ) {
+          ins.#tabId = data.id;
+          ins.campaign();
           Node.instance = ins;
           Node.instancePromise = null;
           resolve(ins);
@@ -83,8 +85,24 @@ export class Node {
 
   private init = () => {
     this.port = this.worker.port;
+    this.onNotice((e: NoticePayload) => {
+      this.logger.info('onNotice', e).print();
+      if (e.data.action === TabAction.LeaderChange) {
+        // leader 变化，1. 需要重新 初始化 createService 2. 如果变化前当前tab是leader，需要 注销 service
+        const currentLeader = e.data.id;
+        if (this.#tabId === currentLeader) {
+          this.#isLeader = true;
+          const server = new Service();
+          this.onServerDidCreate(server);
+
+          this._onElection.fire(server);
+        } else {
+          this.#isLeader = false;
+          this.server?.destroy();
+        }
+      }
+    });
     this.port.start();
-    this.campaign();
     this.register();
 
     window.onbeforeunload = () => {
@@ -120,27 +138,6 @@ export class Node {
     this.port.onmessageerror = (error) => {
       this.logger.error('Message port error:', error).print();
     };
-
-    this.onNotice((e: NoticePayload) => {
-      this.logger.info('onNotice', e).print();
-      if (e.data.action === TabAction.Connected) {
-        this.#tabId = e.data.id;
-      }
-      if (e.data.action === TabAction.LeaderChange) {
-        // leader 变化，1. 需要重新 初始化 createService 2. 如果变化前当前tab是leader，需要 注销 service
-        const currentLeader = e.data.id;
-        if (this.#tabId === currentLeader) {
-          this.#isLeader = true;
-          const server = new Service();
-          this.onServerDidCreate(server);
-
-          this._onElection.fire(server);
-        } else {
-          this.#isLeader = false;
-          this.server?.destroy();
-        }
-      }
-    });
   }
   private campaign = () => {
     this.post({

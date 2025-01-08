@@ -1,17 +1,38 @@
 import { useEffect, useState } from 'react';
-import { InitSharedWorker } from './manager/main';
+import { Client } from './manager/main';
+import Server from './manager/service';
+
+// const connectDB = async () => {
+//   return 'db';
+// };
+
+// const createServices = (server: Server, db: string) => {};
 
 const App = () => {
-  const [worker, setWorker] = useState<InitSharedWorker | null>(null);
+  const [worker, setWorker] = useState<Client | null>(null);
 
   useEffect(() => {
     const boot = async () => {
-      const worker = await InitSharedWorker.create();
-      worker.createService('return1', () => {
-        console.log('handle return1');
+      const worker = await Client.create();
+      worker.onElectioned(async (server: Server) => {
+        // const db = await connectDB();
+        // createServices(server, db);
+        server.addService('return1', () => {
+          console.log('handle return1');
 
-        throw new Error('没有实现');
+          return 111;
+          throw new Error('没有实现');
+        });
+
+        console.log('addService=======>>');
       });
+
+      // worker.createService('return1', () => {
+      //   console.log('handle return1');
+
+      //   throw new Error('没有实现');
+      // });
+
       setWorker(worker);
     };
     boot();

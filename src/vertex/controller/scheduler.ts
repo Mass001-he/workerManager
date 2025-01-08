@@ -159,13 +159,13 @@ export class Scheduler {
       globalThis.removeEventListener('connect', handleConnect);
     });
 
-    this.registercouncil();
+    this.registerCouncil();
     this.registerTabManager();
     this.registerEventQueue();
   }
 
-  private registercouncil() {
-    this.logger.info('register leader election').print();
+  private registerCouncil() {
+    this.logger.info('register council').print();
     this.council.onNoCandidate(() => {
       this.council.campaign(this.tabManager.tabs[0].id);
     });

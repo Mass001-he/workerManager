@@ -26,7 +26,7 @@ export class Council {
   private _timer: any | undefined;
 
   constructor() {
-    this.logger.info('Council created').print();
+    this.logger.info('created').print();
     this._onLeaderChange.event((e) => {
       this.logger.info(`Leader change:`, e).print();
     });

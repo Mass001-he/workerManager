@@ -8,7 +8,7 @@ export class Council {
   /** 任期时间
    * @default 5 * 60 * 1000 (5分钟)
    */
-  static TermOfOffice = 1000000; //5 * 60 * 1000;
+  static TermOfOffice = 5 * 60 * 1000;
   static setTermOfOffice(time: number) {
     Logger.scope('Council').info('Set term of office:', time);
     Council.TermOfOffice = time;

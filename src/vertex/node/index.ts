@@ -1,5 +1,4 @@
-import { Emitter } from '../event';
-import { Logger } from '../logger';
+import { Emitter, Logger } from '../utils';
 import { Service } from './server';
 import { SchedulerAction, TabAction } from '../controller/constant';
 import {

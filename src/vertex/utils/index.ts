@@ -1,3 +1,6 @@
+export * from './event'
+export * from './logger'
+
 export class Counter {
   count = 0;
   next() {
@@ -7,3 +10,4 @@ export class Counter {
     return this.count++;
   }
 }
+

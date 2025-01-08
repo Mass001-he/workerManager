@@ -1,6 +1,4 @@
-import { Emitter } from '../event';
-import { Logger } from '../logger';
-
+import { Emitter, Logger } from '../utils';
 /**
  * 领导选举类
  */

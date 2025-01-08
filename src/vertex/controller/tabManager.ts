@@ -1,5 +1,4 @@
-import { Emitter } from '../event';
-import { Logger } from '../logger';
+import { Emitter, Logger } from '../utils';
 import {
   type NoticePayload,
   type PayloadLike,

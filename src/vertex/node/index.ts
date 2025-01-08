@@ -14,7 +14,7 @@ import {
 import { Counter } from '../utils';
 
 export class Node {
-  private worker: SharedWorker | null = null;
+  private worker: SharedWorker;
   private port!: MessagePort;
   private promiseMap: Map<
     string,
@@ -48,7 +48,7 @@ export class Node {
 
   public tabIdCounter = new Counter();
 
-  static async create() {
+  static async create(sharedWorker: SharedWorker) {
     if (Node.instance) {
       return Node.instance;
     }
@@ -56,7 +56,7 @@ export class Node {
       return Node.instancePromise;
     }
     Node.instancePromise = new Promise<Node>((resolve) => {
-      const ins = new Node();
+      const ins = new Node(sharedWorker);
       const handle = (e: any) => {
         const { type, data } = e.data as PayloadLike;
         if (
@@ -74,20 +74,15 @@ export class Node {
     return Node.instancePromise;
   }
 
-  private constructor() {
+  private constructor(sharedWorker: SharedWorker) {
     this.promiseMap = new Map();
     this._cacheTask = [];
     this.#isLeader = false;
+    this.worker = sharedWorker;
     this.init();
   }
 
   private init = () => {
-    if (this.worker) {
-      return;
-    }
-    this.worker = new SharedWorker('./worker.ts', {
-      name: 'managerWorker',
-    });
     this.port = this.worker.port;
     this.port.start();
     this.campaign();
@@ -287,7 +282,6 @@ export class Node {
     });
     this.server?.destroy();
     this.port?.close();
-    this.worker = null;
     this.promiseMap.clear();
     this._onNotice.dispose();
     this._cacheTask = [];

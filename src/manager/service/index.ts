@@ -20,7 +20,7 @@ class Server {
     return handler;
   }
 
-  createService<P = any, R = any>(
+  addService<P = any, R = any>(
     serviceName: string,
     handle: ServiceHandler<P, R>,
   ) {

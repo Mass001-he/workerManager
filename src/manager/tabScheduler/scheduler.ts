@@ -168,7 +168,7 @@ export class Scheduler {
         type: MessageType.Notice,
         data: {
           action: TabAction.LeaderChange,
-          leader: this.leaderElection.leader,
+          id: this.leaderElection.leader,
         },
       });
       this.eventQueue.reActivation();

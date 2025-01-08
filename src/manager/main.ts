@@ -1,4 +1,5 @@
 import { Emitter } from '../event';
+import { Logger } from '../logger';
 import Server from './service';
 import { SchedulerAction, TabAction } from './tabScheduler/constant';
 import {
@@ -10,9 +11,9 @@ import {
   type PayloadLike,
   type ResponsePayload,
 } from './types';
-import { generateReqId } from './utils';
+import { Counter } from './utils';
 
-export class InitSharedWorker {
+export class Client {
   private worker: SharedWorker | null = null;
   private port!: MessagePort;
   private promiseMap: Map<
@@ -23,42 +24,57 @@ export class InitSharedWorker {
   private _onNotice = new Emitter<NoticePayload>();
   onNotice = this._onNotice.event;
 
-  static instance: InitSharedWorker | null = null;
-  private static instancePromise: Promise<InitSharedWorker> | null = null;
+  private _onElectioned = new Emitter<Server>();
+  onElectioned = this._onElectioned.event;
 
-  private server = new Server();
-  createService = this.server.createService.bind(this.server);
+  static instance: Client | null = null;
+  private static instancePromise: Promise<Client> | null = null;
+
+  private logger = Logger.scope('Client');
+
+  #tabId!: string;
+  server: Server | undefined;
+  createService: (() => void) | undefined;
+
+  private _isLeader: boolean;
+  private _cacheTask: any[];
+
+  get tabId() {
+    return this.#tabId;
+  }
+
+  public tabIdCounter = new Counter();
 
   static async create() {
-    if (InitSharedWorker.instance) {
-      return InitSharedWorker.instance;
+    if (Client.instance) {
+      return Client.instance;
     }
-    if (InitSharedWorker.instancePromise) {
-      return InitSharedWorker.instancePromise;
+    if (Client.instancePromise) {
+      return Client.instancePromise;
     }
-    InitSharedWorker.instancePromise = new Promise<InitSharedWorker>(
-      (resolve) => {
-        const ins = new InitSharedWorker();
-        const handle = (e: any) => {
-          const { type, data } = e.data as PayloadLike;
-          if (
-            type === MessageType.Notice &&
-            data.action === TabAction.Connected
-          ) {
-            InitSharedWorker.instance = ins;
-            InitSharedWorker.instancePromise = null;
-            resolve(ins);
-          }
-          ins.port.removeEventListener('message', handle);
-        };
-        ins.port.addEventListener('message', handle);
-      },
-    );
-    return InitSharedWorker.instancePromise;
+    Client.instancePromise = new Promise<Client>((resolve) => {
+      const ins = new Client();
+      const handle = (e: any) => {
+        const { type, data } = e.data as PayloadLike;
+        if (
+          type === MessageType.Notice &&
+          data.action === TabAction.Connected
+        ) {
+          Client.instance = ins;
+          Client.instancePromise = null;
+          resolve(ins);
+        }
+        ins.port.removeEventListener('message', handle);
+      };
+      ins.port.addEventListener('message', handle);
+    });
+    return Client.instancePromise;
   }
 
   private constructor() {
     this.promiseMap = new Map();
+    this._cacheTask = [];
+    this._isLeader = false;
     this.init();
   }
 
@@ -105,11 +121,29 @@ export class InitSharedWorker {
     });
 
     this.port.onmessageerror = (error) => {
-      console.error('Message port error:', error);
+      this.logger.error('Message port error:', error);
     };
 
-    this.onNotice((e) => {
-      console.log('onNotice', e);
+    this.onNotice((e: NoticePayload) => {
+      this.logger.info('onNotice', e);
+      if (e.data.action === TabAction.Connected) {
+        this.#tabId = e.data.id;
+      }
+      if (e.data.action === TabAction.LeaderChange) {
+        // leader 变化，1. 需要重新 初始化 createService 2. 如果变化前当前tab是leader，需要 注销 service
+        const currentLeader = e.data.id;
+        if (this.#tabId === currentLeader) {
+          this._isLeader = true;
+          // this.onServerWillCreate()
+          const server = new Server();
+          this.onServerDidCreate(server);
+
+          this._onElectioned.fire(server);
+        } else {
+          this._isLeader = false;
+          this.server?.destroy();
+        }
+      }
     });
   }
   private campaign = () => {
@@ -121,7 +155,7 @@ export class InitSharedWorker {
   };
 
   private onResponse(payload: ResponsePayload) {
-    console.log('onResponse', payload);
+    this.logger.info('onResponse', payload);
     const { success, reqId, data } = payload;
     const mHandlerPromiser = this.promiseMap.get(reqId);
     if (mHandlerPromiser) {
@@ -134,14 +168,25 @@ export class InitSharedWorker {
     }
   }
 
-  private async onDispatchRequest(payload: DispatchRequestPayload) {
-    console.log('onDispatchRequest', payload);
+  private onServerWillCreate() {
+    // 收集 server 未创建完成之前收到的任务
+  }
 
-    const { data } = payload;
-    const { tasks } = data;
+  private onServerDidCreate(server: Server) {
+    this.logger.info('ServerDidCreate');
+    this.server = server;
 
+    this.handleTasks(this._cacheTask);
+    this._cacheTask = [];
+  }
+
+  private handleTasks(tasks: any[]) {
     tasks.forEach(async (task) => {
       try {
+        if (this.server === undefined) {
+          this.logger.info('server is undefined');
+          return;
+        }
         const { serviceName, params } = task.data;
 
         const handle = this.server.getService(serviceName);
@@ -152,7 +197,7 @@ export class InitSharedWorker {
           reqId: task.reqId,
           success: true,
         };
-        console.log('_payload', _payload);
+        this.logger.info('_payload', _payload);
         this.post(_payload);
       } catch (error: any) {
         const _payload: DispatchResponsePayload = {
@@ -162,10 +207,22 @@ export class InitSharedWorker {
           type: MessageType.DispatchResponse,
           reqId: task.reqId,
         };
-        console.log('postManager', _payload);
+        this.logger.info('postManager', _payload);
         this.post(_payload);
       }
     });
+  }
+
+  private async onDispatchRequest(payload: DispatchRequestPayload) {
+    this.logger.info('onDispatchRequest', payload);
+    const { data } = payload;
+    const { tasks } = data;
+    if (this.server === undefined) {
+      this._cacheTask = [...this._cacheTask, ...tasks];
+      return;
+    }
+
+    this.handleTasks(tasks);
   }
 
   /**
@@ -177,12 +234,12 @@ export class InitSharedWorker {
       ...payload,
     };
     if (payload.reqId === undefined) {
-      _payload.reqId = generateReqId();
+      _payload.reqId = this.generateReqId();
     }
     if (payload.type === undefined) {
       _payload.type = MessageType.NoResRequest;
     }
-    console.log('post', _payload);
+    this.logger.info('post', _payload);
     this.port.postMessage(_payload);
   }
 
@@ -210,7 +267,7 @@ export class InitSharedWorker {
         ...payload,
       };
       if (payload.reqId === undefined) {
-        _payload.reqId = generateReqId();
+        _payload.reqId = this.generateReqId();
       }
       if (payload.type === undefined) {
         _payload.type = MessageType.Request;
@@ -219,6 +276,10 @@ export class InitSharedWorker {
       this.port.postMessage(_payload);
     });
   };
+
+  generateReqId() {
+    return `${this.#tabId}_${this.tabIdCounter.next()}`;
+  }
 
   destroy = () => {
     this.post({
@@ -230,5 +291,6 @@ export class InitSharedWorker {
     this.worker = null;
     this.promiseMap.clear();
     this._onNotice.dispose();
+    this._cacheTask = [];
   };
 }

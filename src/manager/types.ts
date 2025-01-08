@@ -35,6 +35,7 @@ export interface BaseResponsePayload {
 export interface NoticePayload extends BaseRequestPayload {
   data: {
     action: TabAction;
+    [index: string]: any;
   };
   type: MessageType.Notice;
 }

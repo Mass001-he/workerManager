@@ -14,7 +14,9 @@ import { Counter } from '../utils';
 
 export class Node {
   private worker: SharedWorker;
-  private port!: MessagePort;
+  get port() {
+    return this.worker.port;
+  }
   private promiseMap: Map<
     string,
     { resolve: (data: any) => void; reject: (data: any) => void }
@@ -62,6 +64,7 @@ export class Node {
           type === MessageType.Notice &&
           data.action === TabAction.Connected
         ) {
+          ins.logger.info('Connected', data).print();
           ins.#tabId = data.id;
           ins.campaign();
           Node.instance = ins;
@@ -71,6 +74,7 @@ export class Node {
         ins.port.removeEventListener('message', handle);
       };
       ins.port.addEventListener('message', handle);
+      ins.init();
     });
     return Node.instancePromise;
   }
@@ -80,13 +84,27 @@ export class Node {
     this._cacheTask = [];
     this.#isLeader = false;
     this.worker = sharedWorker;
-    this.init();
   }
 
   private init = () => {
-    this.port = this.worker.port;
+    window.onbeforeunload = () => {
+      this.destroy();
+    };
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        this.campaign();
+      }
+    });
+    this.register();
+    this.port.start();
+
     this.onNotice((e: NoticePayload) => {
+      if (e.data.action === TabAction.Connected) {
+        return;
+        //链接的处理在create的静态方法中
+      }
       this.logger.info('onNotice', e).print();
+
       if (e.data.action === TabAction.LeaderChange) {
         // leader 变化，1. 需要重新 初始化 createService 2. 如果变化前当前tab是leader，需要 注销 service
         const currentLeader = e.data.id;
@@ -100,18 +118,6 @@ export class Node {
           this.#isLeader = false;
           this.server?.destroy();
         }
-      }
-    });
-    this.port.start();
-    this.register();
-
-    window.onbeforeunload = () => {
-      this.destroy();
-    };
-
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') {
-        this.campaign();
       }
     });
   };

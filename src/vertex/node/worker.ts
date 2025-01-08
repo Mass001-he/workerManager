@@ -1,4 +1,4 @@
-import { Scheduler } from '../center';
+import { Scheduler } from '../controller';
 
 const scheduler = new Scheduler();
 

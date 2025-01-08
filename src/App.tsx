@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Node } from './nodeScheduler/node';
+import { Node } from './vertex/node';
 
 const App = () => {
   const [worker, setWorker] = useState<Node | null>(null);

@@ -28,7 +28,7 @@ export class EventQueue<T = any> {
   private logger = Logger.scope('EventQueue');
 
   constructor(options: EventQueueOptions<T>) {
-    this.logger.info('EventQueue created');
+    this.logger.info('EventQueue created').print();
     this.options = options;
   }
 
@@ -36,7 +36,7 @@ export class EventQueue<T = any> {
    * @description 添加任务到队列,等待执行
    */
   public enqueue(task: T) {
-    this.logger.info('enqueue', task);
+    this.logger.info('enqueue', task).print();
     this.eventQueue.push(task);
     if (this.isDispatching === false) {
       this.isDispatching = true;
@@ -67,9 +67,9 @@ export class EventQueue<T = any> {
     const idx = this.activeTasks.findIndex((t) => this.options.filter(item, t));
     if (idx > -1) {
       this.activeTasks.splice(idx, 1);
-      this.logger.info('task completed:', item);
+      this.logger.info('task completed:', item).print();
     } else {
-      this.logger.error('queueItem not found:', item);
+      this.logger.error('queueItem not found:', item).print();
     }
     if (this.activeTasks.length === 0) {
       this.isDispatching = false;
@@ -106,7 +106,7 @@ export class EventQueue<T = any> {
   }
 
   public destroy() {
-    this.logger.info('destroy');
+    this.logger.info('destroy').print();
     this.eventQueue = [];
     this.activeTasks = [];
     this._onTaskActivation.dispose();

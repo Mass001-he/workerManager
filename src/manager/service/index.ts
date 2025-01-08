@@ -8,11 +8,11 @@ class Server {
   private serverMap: Map<string, ServiceHandler> = new Map();
 
   constructor() {
-    this.logger.info('constructor');
+    this.logger.info('constructor').print();
   }
 
   getService(serviceName: string) {
-    this.logger.info('getService', serviceName);
+    this.logger.info('getService', serviceName).print();
     const handler = this.serverMap.get(serviceName);
     if (!handler) {
       throw new Error(`Service ${serviceName} not found`);
@@ -24,12 +24,12 @@ class Server {
     serviceName: string,
     handle: ServiceHandler<P, R>,
   ) {
-    this.logger.info('createService', serviceName);
+    this.logger.info('createService', serviceName).print();
     this.serverMap.set(serviceName, handle);
   }
 
   destroy() {
-    this.logger.info('destroy');
+    this.logger.info('destroy').print();
     this.serverMap.clear();
   }
 }

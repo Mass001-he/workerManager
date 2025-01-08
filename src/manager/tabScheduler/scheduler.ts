@@ -28,7 +28,7 @@ export class Scheduler {
   private dispatchMap = new Map<string, SchedulerEventQueueTask>();
 
   constructor() {
-    this.logger.info('created');
+    this.logger.info('created').print();
     this.tabManager = new TabManager();
     this.leaderElection = new LeaderElection();
     this.eventQueue = new EventQueue({
@@ -41,16 +41,18 @@ export class Scheduler {
 
   private onDispatchResponse = (e: MessageEvent<DispatchResponsePayload>) => {
     const payload = e.data;
-    this.logger.info('onDispatchResponse', payload);
+    this.logger.info('onDispatchResponse', payload).print();
     const reqId = payload.reqId;
     const task = this.dispatchMap.get(reqId);
     if (task === undefined) {
-      this.logger.warn('task not found', reqId, this.dispatchMap);
+      this.logger.warn('task not found', reqId, this.dispatchMap).print();
       return;
     }
     const tab = this.tabManager.getTabById(task.tabId);
     if (tab === undefined) {
-      this.logger.warn('The responder was not found', task, payload, '');
+      this.logger
+        .warn('The responder was not found', task, payload, '')
+        .print();
     } else {
       this.tabManager.postMessage({
         tab,
@@ -90,7 +92,7 @@ export class Scheduler {
   };
 
   private registerTabManager() {
-    this.logger.info('register tab manager');
+    this.logger.info('register tab manager').print();
 
     this.tabManager.onMessage((message) => {
       const { event, tabId } = message;
@@ -114,7 +116,7 @@ export class Scheduler {
           );
           break;
         default:
-          this.logger.warn('unknown message', message);
+          this.logger.warn('unknown message', message).print();
           break;
       }
     });
@@ -139,7 +141,7 @@ export class Scheduler {
   }
 
   private register() {
-    this.logger.info('register tab connect');
+    this.logger.info('register tab connect').print();
     const handleConnect = (e: MessageEvent) => {
       const port = e.ports[0];
       port.start();
@@ -159,7 +161,7 @@ export class Scheduler {
   }
 
   private registerLeaderElection() {
-    this.logger.info('register leader election');
+    this.logger.info('register leader election').print();
     this.leaderElection.onNoCandidate(() => {
       this.leaderElection.campaign(this.tabManager.tabs[0].id);
     });
@@ -179,17 +181,17 @@ export class Scheduler {
   }
 
   private registerEventQueue() {
-    this.logger.info('register event queue');
+    this.logger.info('register event queue').print();
     this.eventQueue.onTaskActivation((ev) => {
       const { tasks } = ev;
       if (this.leaderElection.leader === undefined) {
-        this.logger.warn('leader not found', tasks, 're elect leader');
+        this.logger.warn('leader not found', tasks, 're elect leader').print();
         this.leaderElection.electLeader();
         return;
       }
       const leader = this.tabManager.getTabById(this.leaderElection.leader);
       if (leader === undefined) {
-        this.logger.warn('leader not found', tasks, 're elect leader');
+        this.logger.warn('leader not found', tasks, 're elect leader').print();
         this.leaderElection.electLeader();
         return;
       }
@@ -217,7 +219,7 @@ export class Scheduler {
   }
 
   public destroy() {
-    this.logger.info('destroy');
+    this.logger.info('destroy').print();
     this.destroyFn.forEach((fn) => fn());
   }
 }

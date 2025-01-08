@@ -28,17 +28,17 @@ export class LeaderElection {
   private _timer: any | undefined;
 
   constructor() {
-    this.logger.info('LeaderElection created');
+    this.logger.info('LeaderElection created').print();
     this._onLeaderChange.event((e) => {
-      this.logger.info(`Leader change:`, e);
+      this.logger.info(`Leader change:`, e).print();
     });
     this._onNoCandidate.event(() => {
-      this.logger.info('No candidate');
+      this.logger.info('No candidate').print();
     });
   }
 
   private changeLeader(leader: string) {
-    this.logger.info(`Change leader: ${leader}`);
+    this.logger.info(`Change leader: ${leader}`).print();
 
     this.leader = leader;
     //选举成功后,候选人清空，如果leader被消除，则会触发onNoCandidate事件，由上层指派新的leader
@@ -51,7 +51,7 @@ export class LeaderElection {
    * 选举领导人
    */
   public electLeader() {
-    this.logger.info('Elect leader');
+    this.logger.info('Elect leader').print();
     if (this.campaigners.length === 0) {
       this._onNoCandidate.fire();
       if (this.campaigners.length === 0 && !this.leader) {
@@ -66,9 +66,9 @@ export class LeaderElection {
    * 退位
    */
   public abdicate() {
-    this.logger.info('Abdicate');
+    this.logger.info('Abdicate').print();
     if (this.leader === undefined) {
-      this.logger.error('Abdicate: No leader');
+      this.logger.error('Abdicate: No leader').print();
       return;
     }
     this.leader = undefined;
@@ -79,7 +79,7 @@ export class LeaderElection {
    * 淘汰机制之一：任期倒计时
    */
   public tenureCountdown() {
-    this.logger.info('Resign of selection：tenure countdown');
+    this.logger.info('Resign of selection：tenure countdown').print();
     if (this._timer) {
       return;
     }
@@ -92,7 +92,7 @@ export class LeaderElection {
    * 连任leader
    */
   public reElected() {
-    this.logger.info('Re-elected');
+    this.logger.info('Re-elected').print();
     clearTimeout(this._timer);
   }
 
@@ -106,10 +106,10 @@ export class LeaderElection {
       return;
     }
     if (candidate === undefined) {
-      this.logger.error(`Campaign:`, candidate);
+      this.logger.error(`Campaign:`, candidate).print();
       return;
     }
-    this.logger.info(`Campaign:`, candidate);
+    this.logger.info(`Campaign:`, candidate).print();
     const idx = this.campaigners.findIndex((id) => id === candidate);
     if (idx !== -1) {
       this.campaigners.splice(idx, 1);
@@ -120,7 +120,7 @@ export class LeaderElection {
       } else {
         this.campaigners.push(candidate);
         this.tenureCountdown();
-        this.logger.info(`Campaigners:`, this.campaigners);
+        this.logger.info(`Campaigners:`, this.campaigners).print();
       }
     } else {
       this.changeLeader(candidate);
@@ -128,7 +128,7 @@ export class LeaderElection {
   };
 
   public destroy() {
-    this.logger.info('LeaderElection destroyed');
+    this.logger.info('LeaderElection destroyed').print();
     this._onLeaderChange.dispose();
     this._onNoCandidate.dispose();
     clearTimeout(this._timer);

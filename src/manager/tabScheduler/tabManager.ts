@@ -21,7 +21,7 @@ export class TabManager {
   public onTabAdded = this._onTabAdded.event;
 
   constructor() {
-    this.logger.info('TabManager created');
+    this.logger.info('TabManager created').print();
   }
 
   public getTabById(id: string) {
@@ -61,7 +61,7 @@ export class TabManager {
       id: 'tab' + this.tabIdCounter.next(),
       prot: tabPort,
     };
-    this.logger.info('addTab', tab);
+    this.logger.info('addTab', tab).print();
     this.tabs.push(tab);
     tabPort.addEventListener('message', (ev) => this.handleMessage(tab.id, ev));
     this._onTabAdded.fire(tab);
@@ -69,16 +69,16 @@ export class TabManager {
   }
 
   public removeTab(tab: TabDescriptor) {
-    this.logger.info('removeTab', tab);
+    this.logger.info('removeTab', tab).print();
     const idx = this.getTabIndexById(tab.id);
     if (idx !== -1) {
-      this.logger.info('removeTab', { tab, idx });
+      this.logger.info('removeTab', { tab, idx }).print();
       this.tabs.splice(idx, 1);
     }
   }
 
   public destroy() {
-    this.logger.info('destroy');
+    this.logger.info('destroy').print();
     for (const tab of this.tabs) {
       tab.prot.close();
     }

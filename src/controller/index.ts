@@ -5,7 +5,7 @@ class ApiGateway {
   private baseUrl: string;
   constructor(baseUrl: string) {
     this.baseUrl = baseUrl;
-    this.logger.info('ApiGateway created');
+    this.logger.info('ApiGateway created').print();
   }
 
   async get(path: string, params?: Record<string, any>): Promise<any> {
@@ -16,7 +16,7 @@ class ApiGateway {
       );
     }
 
-    this.logger.info(`GET request to ${url.toString()}`);
+    this.logger.info(`GET request to ${url.toString()}`).print();
     const response = await fetch(url.toString(), {
       method: 'GET',
       headers: {
@@ -36,7 +36,7 @@ class ApiGateway {
 
   async post(path: string, body: any): Promise<any> {
     const url = `${this.baseUrl}${path}`;
-    this.logger.info(`POST request to ${url}`);
+    this.logger.info(`POST request to ${url}`).print();
 
     const response = await fetch(url, {
       method: 'POST',

@@ -1,6 +1,6 @@
 import { Emitter, Logger } from '../utils';
 /**
- * 领导选举类
+ * 理事会(领导选举类)
  */
 export class Council {
   /** 任期时间

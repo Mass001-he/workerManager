@@ -39,7 +39,3 @@
 
 - [x] 批量处理 事件队列统一派发给leader。
 - [x] server单一化，而不是每个client都会创建一个server。
-
-## TODO:
-
-- [] tabManager脱离平台改为nodeManager

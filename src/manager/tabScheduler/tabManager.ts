@@ -1,6 +1,10 @@
 import { Emitter } from '../../event';
 import { Logger } from '../../logger';
-import { type PayloadLike, type TabDescriptor } from '../types';
+import {
+  type NoticePayload,
+  type PayloadLike,
+  type TabDescriptor,
+} from '../types';
 import { Counter } from '../utils';
 
 export class TabManager {
@@ -44,6 +48,15 @@ export class TabManager {
   }) {
     const { tab, message } = options;
     tab?.prot.postMessage(message);
+  }
+
+  /**
+   * 广播消息
+   */
+  public broadcastMessage<T extends NoticePayload>(message: T) {
+    for (const tab of this.tabs) {
+      tab.prot.postMessage(message);
+    }
   }
 
   public addTab(tabPort: MessagePort) {

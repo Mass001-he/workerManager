@@ -32,7 +32,7 @@ export interface BaseResponsePayload {
   message?: string;
 }
 
-export interface NoticePayload extends BaseResponsePayload {
+export interface NoticePayload extends BaseRequestPayload {
   data: {
     action: TabAction;
   };

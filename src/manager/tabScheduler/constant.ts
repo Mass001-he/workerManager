@@ -1,5 +1,6 @@
 export enum TabAction {
   Connected = 'connect',
+  LeaderChange = 'leaderChange',
 }
 
 export enum SchedulerAction {

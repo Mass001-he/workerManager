@@ -127,6 +127,7 @@ export class Scheduler {
           type: MessageType.Notice,
           data: {
             action: TabAction.Connected,
+            id: e.id,
           },
         },
       });
@@ -163,6 +164,13 @@ export class Scheduler {
       this.leaderElection.campaign(this.tabManager.tabs[0].id);
     });
     this.leaderElection.onLeaderChange(() => {
+      this.tabManager.broadcastMessage({
+        type: MessageType.Notice,
+        data: {
+          action: TabAction.LeaderChange,
+          leader: this.leaderElection.leader,
+        },
+      });
       this.eventQueue.reActivation();
     });
     this.destroyFn.push(() => {

@@ -51,7 +51,7 @@ export class LeaderElection {
    * 选举领导人
    */
   public electLeader() {
-    this.logger.info('Elect leader').print();
+    this.logger.info('Elect leader', this.campaigners).print();
     if (this.campaigners.length === 0) {
       this._onNoCandidate.fire();
       if (this.campaigners.length === 0 && !this.leader) {
@@ -66,7 +66,7 @@ export class LeaderElection {
    * 退位
    */
   public abdicate() {
-    this.logger.info('Abdicate').print();
+    this.logger.info('Abdicate', this.leader).print();
     if (this.leader === undefined) {
       this.logger.error('Abdicate: No leader').print();
       return;
@@ -79,10 +79,14 @@ export class LeaderElection {
    * 淘汰机制之一：任期倒计时
    */
   public tenureCountdown() {
-    this.logger.info('Resign of selection：tenure countdown').print();
+    this.logger.info('tenureCountdown').print();
     if (this._timer) {
+      this.logger.info('tenureCountdown: timer exists', this._timer).print();
       return;
     }
+    this.logger
+      .info('Resign of selection：tenure countdown', this.leader)
+      .print();
     this._timer = setTimeout(() => {
       this.abdicate();
     }, LeaderElection.TermOfOffice);
@@ -92,8 +96,9 @@ export class LeaderElection {
    * 连任leader
    */
   public reElected() {
-    this.logger.info('Re-elected').print();
+    this.logger.info('Re-elected', this.leader).print();
     clearTimeout(this._timer);
+    this._timer = undefined;
   }
 
   /**
@@ -120,7 +125,9 @@ export class LeaderElection {
       } else {
         this.campaigners.push(candidate);
         this.tenureCountdown();
-        this.logger.info(`Campaigners:`, this.campaigners).print();
+        this.logger
+          .info(`tenureCountdown Campaigners:`, this.campaigners)
+          .print();
       }
     } else {
       this.changeLeader(candidate);

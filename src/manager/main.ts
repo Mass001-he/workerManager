@@ -285,6 +285,7 @@ export class Client {
         action: SchedulerAction.Destroy,
       },
     });
+    this.server?.destroy();
     this.port?.close();
     this.worker = null;
     this.promiseMap.clear();

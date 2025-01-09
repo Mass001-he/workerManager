@@ -8,7 +8,7 @@ export class Service {
   private serverMap: Map<string, ServiceHandler> = new Map();
 
   constructor() {
-    this.logger.info('constructor').print();
+    this.logger.info('created').print();
   }
 
   getService(serviceName: string) {

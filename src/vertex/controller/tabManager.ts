@@ -1,10 +1,5 @@
 import { Emitter, Logger } from '../utils';
-import {
-  MessageType,
-  type NoticePayload,
-  type PayloadLike,
-  type TabDescriptor,
-} from '../types';
+import { MessageType, type PayloadLike, type TabDescriptor } from '../types';
 import { Counter } from '../utils';
 
 export class TabManager {
@@ -63,6 +58,22 @@ export class TabManager {
         tab,
         message: {
           type: MessageType.Broadcast,
+          data,
+        },
+      });
+    }
+  }
+
+  /**
+   * 广播通知
+   */
+  public broadcastNotice<T extends Record<string, any>>(data: T) {
+    this.logger.info('broadcastNotice', data).print();
+    for (const tab of this.tabs) {
+      this.postMessage({
+        tab,
+        message: {
+          type: MessageType.Notice,
           data,
         },
       });

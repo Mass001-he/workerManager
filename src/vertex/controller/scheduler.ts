@@ -179,12 +179,9 @@ export class Scheduler {
       this.council.campaign(this.tabManager.tabs[0].id);
     });
     this.council.onLeaderChange(() => {
-      this.tabManager.broadcastMessage({
-        type: MessageType.Notice,
-        data: {
-          action: TabAction.LeaderChange,
-          id: this.council.leader,
-        },
+      this.tabManager.broadcastNotice({
+        action: TabAction.LeaderChange,
+        id: this.council.leader,
       });
       this.eventQueue.reActivation();
     });

@@ -14,7 +14,7 @@ import {
 } from '../types';
 import { Counter } from '../utils';
 
-const DelayMs = 1000;
+const DelayMs = 1500;
 
 /**
  * 默认节点选项

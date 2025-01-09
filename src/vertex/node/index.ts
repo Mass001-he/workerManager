@@ -6,12 +6,20 @@ import {
   DispatchResponsePayload,
   MessageType,
   PayloadOptions,
+  type BroadcastPayload,
+  type NodeOptions,
   type NoticePayload,
   type PayloadLike,
   type ResponsePayload,
 } from '../types';
 import { Counter } from '../utils';
 
+/**
+ * 默认节点选项
+ */
+const DefaultNodeOptions: NodeOptions = {
+  broadcastSelf: true,
+};
 export class Node {
   private worker: SharedWorker;
   get port() {
@@ -25,6 +33,9 @@ export class Node {
   private _onNotice = new Emitter<NoticePayload>();
   onNotice = this._onNotice.event;
 
+  private _onBroadcast = new Emitter<BroadcastPayload>();
+  onBroadcast = this._onBroadcast.event;
+
   private _onElection = new Emitter<Service>();
   onElection = this._onElection.event;
 
@@ -33,7 +44,6 @@ export class Node {
 
   private logger = Logger.scope('Node');
 
-  #tabId!: string;
   server: Service | undefined;
   createService: (() => void) | undefined;
 
@@ -41,13 +51,13 @@ export class Node {
   get isLeader() {
     return this.#isLeader;
   }
-  private _cacheTask: any[];
-
+  #tabId!: string;
   get tabId() {
     return this.#tabId;
   }
-
-  public tabIdCounter = new Counter();
+  private _cacheTask: any[];
+  private tabIdCounter = new Counter();
+  private options: NodeOptions;
 
   static async create(sharedWorker: SharedWorker) {
     if (Node.instance) {
@@ -79,7 +89,8 @@ export class Node {
     return Node.instancePromise;
   }
 
-  private constructor(sharedWorker: SharedWorker) {
+  private constructor(sharedWorker: SharedWorker, options: NodeOptions = {}) {
+    this.options = { ...DefaultNodeOptions, ...options };
     this.promiseMap = new Map();
     this._cacheTask = [];
     this.#isLeader = false;
@@ -136,7 +147,11 @@ export class Node {
         case MessageType.DispatchRequest:
           this.onDispatchRequest(ev.data);
           break;
+        case MessageType.Broadcast:
+          this._onBroadcast.fire(ev.data as BroadcastPayload);
+          break;
         default:
+          this.logger.warn('unknown message', ev.data).print();
           break;
       }
     });
@@ -221,7 +236,7 @@ export class Node {
   }
 
   /**
-   * 递交任务给tabManager, 不关心结果
+   * 递交scheduler, 不关心结果，没有返回
    * @param payload
    */
   post(payload: PayloadOptions) {
@@ -239,7 +254,7 @@ export class Node {
   }
 
   /**
-   * 请求tabManager，返回结果
+   * 请求scheduler返回结果
    * @param payload
    */
   request(serviceName: string, params: any): Promise<ResponsePayload> {
@@ -248,6 +263,17 @@ export class Node {
         params,
         serviceName,
       },
+    });
+  }
+
+  /**
+   * 广播给所有Node
+   */
+  broadcast<T extends Record<string, any> = any>(body: T) {
+    this.post({
+      type: MessageType.Broadcast,
+      data: body,
+      toSelf: this.options.broadcastSelf,
     });
   }
 
@@ -272,7 +298,7 @@ export class Node {
     });
   };
 
-  generateReqId() {
+  private generateReqId() {
     return `${this.#tabId}_${this.tabIdCounter.next()}`;
   }
 

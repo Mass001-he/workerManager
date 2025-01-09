@@ -107,6 +107,15 @@ export class Scheduler {
             tabId,
           });
           break;
+        case MessageType.Broadcast:
+          this.tabManager.broadcastMessage(
+            {
+              ...payload.data,
+              sender: tabId,
+            },
+            payload.toSelf ? undefined : [tabId],
+          );
+          break;
         case MessageType.DispatchResponse:
           this.onDispatchResponse(
             tabId,

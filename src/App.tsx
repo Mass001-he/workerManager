@@ -53,10 +53,25 @@ const App = () => {
       },
     }); */
   };
+
+  const broadcast = () => {
+    worker?.broadcast({
+      type: '更新会话详情',
+      ids: [1, 2, 3],
+    });
+  };
+
+  const watchBroadcast = () => {
+    worker?.onBroadcast((data) => {
+      console.log('watchBroadcast', data);
+    });
+  };
   return (
     <div>
       <button onClick={postManager}>postManager</button>
       <button onClick={sendMessage}>await send message</button>
+      <button onClick={broadcast}>广播</button>
+      <button onClick={watchBroadcast}>监听广播</button>
     </div>
   );
 };

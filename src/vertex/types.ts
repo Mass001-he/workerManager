@@ -13,6 +13,8 @@ export enum MessageType {
   DispatchResponse = 'DispatchResponse',
   /** 调度器通知 */
   Notice = 'Notice',
+  /** 广播 */
+  Broadcast = 'Broadcast',
 }
 
 export interface PayloadLike {
@@ -32,12 +34,17 @@ export interface BaseResponsePayload {
   message?: string;
 }
 
-export interface NoticePayload extends BaseRequestPayload {
+export interface NoticePayload {
   data: {
     action: TabAction;
     [index: string]: any;
   };
   type: MessageType.Notice;
+}
+
+export interface BroadcastPayload<T extends Record<string, any> = any> {
+  type: MessageType.Broadcast;
+  data: T;
 }
 
 export interface DispatchRequestPayload extends BaseRequestPayload {
@@ -101,4 +108,12 @@ export interface PayloadOptions {
     [key: string]: any;
   };
   [key: string]: any;
+}
+
+export interface NodeOptions {
+  /**
+   * 广播的事件是否需要广播给自己
+   * @default true
+   */
+  broadcastSelf?: boolean;
 }

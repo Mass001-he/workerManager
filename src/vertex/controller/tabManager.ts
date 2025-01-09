@@ -1,5 +1,6 @@
 import { Emitter, Logger } from '../utils';
 import {
+  MessageType,
   type NoticePayload,
   type PayloadLike,
   type TabDescriptor,
@@ -49,9 +50,22 @@ export class TabManager {
   /**
    * 广播消息
    */
-  public broadcastMessage<T extends NoticePayload>(message: T) {
+  public broadcastMessage<T extends Record<string, any>>(
+    data: T,
+    exclude?: string[],
+  ) {
+    this.logger.info('broadcastMessage', { data, exclude }).print();
     for (const tab of this.tabs) {
-      tab.prot.postMessage(message);
+      if (exclude && exclude.includes(tab.id)) {
+        continue;
+      }
+      this.postMessage({
+        tab,
+        message: {
+          type: MessageType.Broadcast,
+          data,
+        },
+      });
     }
   }
 

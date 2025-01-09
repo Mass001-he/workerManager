@@ -59,7 +59,7 @@ export class Node {
   private tabIdCounter = new Counter();
   private options: NodeOptions;
 
-  static async create(sharedWorker: SharedWorker) {
+  static async create(sharedWorker: SharedWorker, options: NodeOptions = {}) {
     if (Node.instance) {
       return Node.instance;
     }
@@ -67,7 +67,7 @@ export class Node {
       return Node.instancePromise;
     }
     Node.instancePromise = new Promise<Node>((resolve) => {
-      const ins = new Node(sharedWorker);
+      const ins = new Node(sharedWorker, options);
       const handle = (e: any) => {
         const { type, data } = e.data as PayloadLike;
         if (

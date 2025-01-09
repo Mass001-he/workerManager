@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Node } from './vertex/node';
 const sharedWorker = new SharedWorker(new URL('./worker.ts', import.meta.url), {
-  name: 'managerWorker',
+  name: 'vertexWorker',
 });
 
 const App = () => {
@@ -68,8 +68,8 @@ const App = () => {
   };
   return (
     <div>
-      <button onClick={postManager}>postManager</button>
-      <button onClick={sendMessage}>await send message</button>
+      <button onClick={postManager}>无返回值发送消息</button>
+      <button onClick={sendMessage}>有返回值发送消息 </button>
       <button onClick={broadcast}>广播</button>
       <button onClick={watchBroadcast}>监听广播</button>
     </div>

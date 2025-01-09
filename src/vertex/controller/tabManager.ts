@@ -16,7 +16,7 @@ export class TabManager {
   public onTabAdded = this._onTabAdded.event;
 
   constructor() {
-    this.logger.info('created').print();
+    this.logger.info('Created').print();
   }
 
   public getTabById(id: string) {

@@ -26,7 +26,7 @@ export class EventQueue<T = any> {
   private logger = Logger.scope('EventQueue');
 
   constructor(options: EventQueueOptions<T>) {
-    this.logger.info('created').print();
+    this.logger.info('Created').print();
     this.options = options;
   }
 

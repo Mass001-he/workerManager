@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Node } from './vertex/node';
+import type { Service } from './vertex/node/service';
 const sharedWorker = new SharedWorker(new URL('./worker.ts', import.meta.url), {
   name: 'managerWorker',
 });
@@ -10,12 +11,10 @@ const App = () => {
   useEffect(() => {
     const boot = async () => {
       const worker = await Node.create(sharedWorker);
-      worker.onElection(async (server: any) => {
-        // const db = await connectDB();
-        // createServices(server, db);
-        server.addService('return1', () => {
-          return 111;
+      worker.onElection(async (service: Service) => {
+        service.add('return1', () => {
           throw new Error('没有实现');
+          return 111;
         });
       });
 
@@ -31,17 +30,15 @@ const App = () => {
   }, []);
 
   const sendMessage = async () => {
-    console.log('send message');
     try {
       const res = await worker?.request('return1', {
-        data: {
-          type: 'db',
-          sql: 'select * from user',
-        },
+        data: 'data',
       });
 
       console.log('res===>', res);
-    } catch (error) {}
+    } catch (error) {
+      console.log('error===>', error);
+    }
   };
 
   const postManager = () => {

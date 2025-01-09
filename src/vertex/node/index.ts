@@ -1,5 +1,5 @@
 import { Emitter, Logger } from '../utils';
-import { Service } from './server';
+import { Service } from './service';
 import { SchedulerAction, TabAction } from '../controller/constant';
 import {
   DispatchRequestPayload,
@@ -13,6 +13,8 @@ import {
   type ResponsePayload,
 } from '../types';
 import { Counter } from '../utils';
+
+const DelayMs = 1000;
 
 /**
  * 默认节点选项
@@ -45,7 +47,6 @@ export class Node {
   private logger = Logger.scope('Node');
 
   server: Service | undefined;
-  createService: (() => void) | undefined;
 
   #isLeader: boolean;
   get isLeader() {
@@ -90,6 +91,7 @@ export class Node {
   }
 
   private constructor(sharedWorker: SharedWorker, options: NodeOptions = {}) {
+    this.logger.info('Created').print();
     this.options = { ...DefaultNodeOptions, ...options };
     this.promiseMap = new Map();
     this._cacheTask = [];
@@ -103,7 +105,11 @@ export class Node {
     };
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') {
-        this.campaign();
+        setTimeout(() => {
+          if (document.visibilityState === 'visible') {
+            this.campaign();
+          }
+        }, DelayMs);
       }
     });
     this.register();
@@ -199,7 +205,7 @@ export class Node {
         }
         const { serviceName, params } = task.data;
 
-        const handle = this.server.getService(serviceName);
+        const handle = this.server.get(serviceName);
         const res = await handle(params);
         const _payload: DispatchResponsePayload = {
           data: res,
@@ -207,7 +213,14 @@ export class Node {
           reqId: task.reqId,
           success: true,
         };
-        this.logger.info('_payload', _payload).print();
+        this.logger
+          .info('handleDispatch', {
+            serviceName,
+            params,
+            res,
+            reqId: task.reqId,
+          })
+          .print();
         this.post(_payload);
       } catch (error: any) {
         const _payload: DispatchResponsePayload = {
@@ -217,7 +230,14 @@ export class Node {
           type: MessageType.DispatchResponse,
           reqId: task.reqId,
         };
-        this.logger.info('postManager', _payload).print();
+        this.logger
+          .error('handleDispatch', {
+            serviceName: task.data.serviceName,
+            params: task.data.params,
+            error,
+            reqId: task.reqId,
+          })
+          .print();
         this.post(_payload);
       }
     });
@@ -239,7 +259,7 @@ export class Node {
    * 递交scheduler, 不关心结果，没有返回
    * @param payload
    */
-  post(payload: PayloadOptions) {
+  post(payload: PayloadOptions, log = true) {
     const _payload = {
       ...payload,
     };
@@ -249,7 +269,9 @@ export class Node {
     if (payload.type === undefined) {
       _payload.type = MessageType.NoResRequest;
     }
-    this.logger.info('post', _payload).print();
+    if (log) {
+      this.logger.info('Post', _payload).print();
+    }
     this.port.postMessage(_payload);
   }
 

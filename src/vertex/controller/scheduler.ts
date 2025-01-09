@@ -28,7 +28,7 @@ export class Scheduler {
   private dispatchMap = new Map<string, SchedulerEventQueueTask>();
 
   constructor() {
-    this.logger.info('created').print();
+    this.logger.info('Created').print();
     this.tabManager = new TabManager();
     this.council = new Council();
     this.eventQueue = new EventQueue({

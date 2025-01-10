@@ -14,3 +14,19 @@ export function isOPFSSupported() {
     );
   }
 }
+
+export function normalizePath(path: string) {
+  const result = path.trim().replace(/^\/+/, '');
+  return result;
+}
+
+
+export function isDirectoryHandle(
+  handle: FileSystemHandle,
+): handle is FileSystemDirectoryHandle {
+  return handle.kind === 'directory';
+}
+
+export function isFileHandle(handle: FileSystemHandle): handle is FileSystemFileHandle {
+  return handle.kind === 'file';
+}

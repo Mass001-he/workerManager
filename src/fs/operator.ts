@@ -1,5 +1,6 @@
 import { NotFoundError, NotSupportedError, PathFormatError } from './error';
-import type { WriteFileOptions } from './types';
+import type { MakeDirOptions, WriteFileOptions } from './types';
+import { normalizePath } from './utils';
 function isOPFSSupported() {
   try {
     return (
@@ -31,14 +32,18 @@ export class OPFSOperator {
     }
   }
 
-  static formatPath(src: string) {
-    const result = src.replace(/^\/+/, '').split('/');
+  isRoot(path: string) {
+    return normalizePath(path) === '';
+  }
+
+  formatPath(path: string) {
+    const result = normalizePath(path).split('/');
     if (result.length === 0) {
-      throw new PathFormatError('path error:' + src);
+      throw new PathFormatError('path error:' + path);
     }
     const hasEmptyStr = result.some((item) => item.trim() === '');
     if (hasEmptyStr) {
-      throw new PathFormatError('path error:' + src);
+      throw new PathFormatError('path error:' + path);
     }
     return result;
   }
@@ -61,7 +66,7 @@ export class OPFSOperator {
       return this.root;
     }
 
-    const _paths = OPFSOperator.formatPath(src);
+    const _paths = this.formatPath(src);
     const innerGet = async (
       handle: FileSystemDirectoryHandle,
       paths: string[],
@@ -71,18 +76,7 @@ export class OPFSOperator {
       }
       const [name, ...rest] = paths;
       if (rest.length === 0) {
-        try {
-          try {
-            const res = await handle.getFileHandle(name, { create: false });
-            return res;
-          } catch (error) {
-            return await handle.getDirectoryHandle(name, { create: false });
-          }
-        } catch (error) {
-          throw new NotFoundError(
-            `path not found: ${src},${(error as any)?.message}`,
-          );
-        }
+        return this.getParentHandleChild(handle, name, false);
       } else {
         try {
           const nextHandle = await handle.getDirectoryHandle(name, {
@@ -100,16 +94,53 @@ export class OPFSOperator {
     return innerGet(this.root, _paths);
   }
 
-  async getParentHandle(path: string) {
-    const _paths = OPFSOperator.formatPath(path);
-    if (_paths.length === 0 || _paths.length === 1) {
-      return this.root;
+  /**
+   * 获取父级操作句柄下的操作句柄
+   */
+  async getParentHandleChild(
+    parentHandle: FileSystemDirectoryHandle,
+    childName: string,
+    create = false,
+  ) {
+    try {
+      const res = await parentHandle.getDirectoryHandle(childName, {
+        create,
+      });
+      return res;
+    } catch (error) {
+      try {
+        const res = await parentHandle.getFileHandle(childName, {
+          create,
+        });
+        return res;
+      } catch (error) {
+        throw new NotFoundError(
+          `path not found: ${childName},${(error as any)?.message}`,
+        );
+      }
     }
+  }
+
+  /**
+   * 获取路径的父级句柄
+   */
+  async getParentHandle(path: string) {
+    const _paths = this.formatPath(path);
+    if (_paths.length === 0 || _paths.length === 1) {
+      return {
+        lastPath: _paths[0],
+        parentHandle: this.root,
+      };
+    }
+    const lastPath = _paths[_paths.length - 1];
     const parentPaths = _paths.slice(0, _paths.length - 1);
 
     const result = await this.getPathHandle(parentPaths.join('/'));
     if (result instanceof FileSystemDirectoryHandle) {
-      return result;
+      return {
+        lastPath,
+        parentHandle: result,
+      };
     }
     throw new NotFoundError(`path not found: ${path}`);
   }
@@ -117,11 +148,12 @@ export class OPFSOperator {
   /**
    * 创建目录
    */
-  async mkdir(path: string) {
+  async mkdir(path: string, options: MakeDirOptions = {}) {
     if (path === '/' || path === '') {
       return this.root;
     }
-    const _paths = OPFSOperator.formatPath(path);
+    const { recursive = false } = options;
+    const _paths = this.formatPath(path);
     const innerMkdir = async (
       handle: FileSystemDirectoryHandle,
       paths: string[],
@@ -131,7 +163,7 @@ export class OPFSOperator {
       }
       const [name, ...rest] = paths;
       const nextHandle = await handle.getDirectoryHandle(name, {
-        create: true,
+        create: recursive,
       });
       return innerMkdir(nextHandle, rest);
     };
@@ -139,6 +171,9 @@ export class OPFSOperator {
     return innerMkdir(this.root, _paths);
   }
 
+  /**
+   * 写入文件,支持追加和覆写
+   */
   async writeFile(
     path: string,
     data: ArrayBuffer | ArrayBufferView,
@@ -146,7 +181,7 @@ export class OPFSOperator {
   ) {
     const { append = false, create = true, recursive = false } = options;
 
-    const _paths = OPFSOperator.formatPath(path);
+    const _paths = this.formatPath(path);
     const innerWrite = async (
       handle: FileSystemDirectoryHandle,
       paths: string[],

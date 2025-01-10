@@ -1,5 +1,12 @@
 import { OPFSOperator } from './operator';
-import type { FileInfo, WriteFileOptions } from './types';
+import type {
+  FileInfo,
+  FileTreeNode,
+  MakeDirOptions,
+  SnapshotOptions,
+  WriteFileOptions,
+} from './types';
+import { isDirectoryHandle, isFileHandle, normalizePath } from './utils';
 
 export class OPFS {
   private opfsOperator: OPFSOperator;
@@ -11,20 +18,10 @@ export class OPFS {
   }
   private constructor(operator: OPFSOperator) {
     this.opfsOperator = operator;
-    //@ts-ignore
-    globalThis.opfs = this;
-    this.test();
-  }
-  async test() {
-    await this.writeFile('/init/test.txt', 'hello world', {
-      create: true,
-      recursive: true,
-      append: true,
-    });
-    // await this.writeFile('/init/test.txt', 'hello world', {
-    //   create: true,
-    //   append: true,
-    // });
+    this.writeFile('test.txt', 'hello world');
+    this.writeFile('test2.txt', 'hello world2');
+    this.writeFile('test3.txt', 'hello world3');
+    this.snapshot();
   }
 
   async stat(path: string) {
@@ -51,18 +48,18 @@ export class OPFS {
     }
   }
 
-  async mkdir(path: string) {
-    return this.opfsOperator.mkdir(path);
+  async mkdir(path: string, options: MakeDirOptions = {}) {
+    return this.opfsOperator.mkdir(path, options);
   }
 
-  /**
-   * 便捷递归删除
-   * @param path
-   * @returns
-   */
-  async remove(path: string) {
-    const handle = await this.opfsOperator.getParentHandle(path);
-    return handle.removeEntry(OPFSOperator.formatPath(path).pop()!);
+  async remove(path: string, options: FileSystemRemoveOptions = {}) {
+    const { recursive = false } = options;
+    const { lastPath, parentHandle } =
+      await this.opfsOperator.getParentHandle(path);
+
+    return parentHandle.removeEntry(lastPath, {
+      recursive,
+    });
   }
 
   async writeFile(
@@ -87,5 +84,59 @@ export class OPFS {
     await this.opfsOperator.root.remove({
       recursive: true,
     });
+  }
+
+  /**
+   * 快照当前路径下的所有成员
+   */
+  async snapshot(path = '/', options: SnapshotOptions = {}) {
+    const { filter } = options;
+    const rootHandle = await this.opfsOperator.getPathHandle(path);
+    if (rootHandle.kind === 'file') {
+      throw new TypeError('Cannot snapshot a file');
+    }
+    const tree: FileTreeNode = {
+      name: rootHandle.name,
+      kind: 'directory',
+      path: normalizePath(path),
+      children: [],
+    };
+
+    const innerSnapshot = async (
+      nextHandle: FileSystemDirectoryHandle,
+      tree: any,
+    ) => {
+      for await (const [name, handle] of nextHandle.entries()) {
+        const path = `${tree.path}/${name}`;
+        if (isDirectoryHandle(handle)) {
+          const info: FileTreeNode = {
+            name,
+            kind: 'directory',
+            path,
+            children: [],
+          };
+          if (filter && !filter(info)) {
+            continue;
+          }
+          tree.children.push(info);
+          await innerSnapshot(handle, info);
+        }
+        if (isFileHandle(handle)) {
+          const info: FileTreeNode = {
+            name,
+            kind: 'file',
+            path,
+          };
+          if (filter && !filter(info)) {
+            continue;
+          }
+          tree.children.push(info);
+        }
+      }
+    };
+
+    await innerSnapshot(rootHandle, tree);
+    console.log(tree);
+    return tree;
   }
 }

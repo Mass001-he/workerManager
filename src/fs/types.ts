@@ -11,6 +11,19 @@ export interface FileInfo {
   isDirectory: boolean;
 }
 
+export interface FileTreeNode {
+  /** The name of the file. */
+  name: string;
+  /** The full path of the file. */
+  path: string;
+  /**
+   * `file` or `directory`
+   */
+  kind: 'file' | 'directory';
+  /** The children of the directory. */
+  children?: FileTreeNode[];
+}
+
 export interface WriteFileOptions {
   /**
    * If set to true, will append to a file instead of overwriting previous contents.
@@ -27,4 +40,19 @@ export interface WriteFileOptions {
    * @default false
    */
   recursive?: boolean;
+}
+
+export interface MakeDirOptions {
+  /**
+   * Indicates whether the method should create any missing directories.
+   * @default false
+   */
+  recursive?: boolean;
+}
+
+export interface SnapshotOptions {
+  /**
+   * A filter function that can be used to exclude files from the snapshot.
+   */
+  filter?: (info: FileTreeNode) => boolean;
 }

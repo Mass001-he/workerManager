@@ -1,4 +1,5 @@
 import { NotFoundError, NotSupportedError, PathFormatError } from './error';
+import type { WriteFileOptions } from './types';
 function isOPFSSupported() {
   try {
     return (
@@ -78,8 +79,9 @@ export class OPFSOperator {
             return await handle.getDirectoryHandle(name, { create: false });
           }
         } catch (error) {
-          console.error('getPathHandle.innerGet:', src, error);
-          throw new NotFoundError(`path not found: ${src}`);
+          throw new NotFoundError(
+            `path not found: ${src},${(error as any)?.message}`,
+          );
         }
       } else {
         try {
@@ -88,8 +90,9 @@ export class OPFSOperator {
           });
           return innerGet(nextHandle, rest);
         } catch (error) {
-          console.error('getPathHandle.innerGet:', src, error);
-          throw new NotFoundError(`path not found: ${src}`);
+          throw new NotFoundError(
+            `path not found: ${src},${(error as any)?.message}`,
+          );
         }
       }
     };
@@ -97,10 +100,27 @@ export class OPFSOperator {
     return innerGet(this.root, _paths);
   }
 
+  async getParentHandle(path: string) {
+    const _paths = OPFSOperator.formatPath(path);
+    if (_paths.length === 0 || _paths.length === 1) {
+      return this.root;
+    }
+    const parentPaths = _paths.slice(0, _paths.length - 1);
+
+    const result = await this.getPathHandle(parentPaths.join('/'));
+    if (result instanceof FileSystemDirectoryHandle) {
+      return result;
+    }
+    throw new NotFoundError(`path not found: ${path}`);
+  }
+
   /**
    * 创建目录
    */
   async mkdir(path: string) {
+    if (path === '/' || path === '') {
+      return this.root;
+    }
     const _paths = OPFSOperator.formatPath(path);
     const innerMkdir = async (
       handle: FileSystemDirectoryHandle,
@@ -117,5 +137,63 @@ export class OPFSOperator {
     };
 
     return innerMkdir(this.root, _paths);
+  }
+
+  async writeFile(
+    path: string,
+    data: ArrayBuffer | ArrayBufferView,
+    options: WriteFileOptions = {},
+  ) {
+    const { append = false, create = true, recursive = false } = options;
+
+    const _paths = OPFSOperator.formatPath(path);
+    const innerWrite = async (
+      handle: FileSystemDirectoryHandle,
+      paths: string[],
+    ) => {
+      if (paths.length === 0) {
+        throw new PathFormatError('path error:' + path);
+      }
+      const [name, ...rest] = paths;
+      if (rest.length === 0) {
+        try {
+          const fileHandle = await handle.getFileHandle(name, {
+            create: create,
+          });
+
+          const syncHandle = await fileHandle.createSyncAccessHandle();
+          const size = syncHandle.getSize();
+          if (append) {
+            syncHandle.write(data, {
+              at: size,
+            });
+          } else {
+            syncHandle.truncate(0);
+            syncHandle.write(data);
+          }
+          const newSize = syncHandle.getSize();
+          syncHandle.flush();
+          syncHandle.close();
+          return newSize;
+        } catch (error) {
+          throw new NotFoundError(
+            `path not found: ${path},${(error as any)?.message}`,
+          );
+        }
+      } else {
+        try {
+          const nextHandle = await handle.getDirectoryHandle(name, {
+            create: recursive,
+          });
+          return innerWrite(nextHandle, rest);
+        } catch (error) {
+          throw new NotFoundError(
+            `In the full path [${path}], the path [${name}] is not a directory. ${(error as any)?.message}`,
+          );
+        }
+      }
+    };
+
+    return innerWrite(this.root, _paths);
   }
 }

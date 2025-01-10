@@ -1,24 +1,3 @@
-/** Options for {@linkcode copy} and {@linkcode copySync}. */
-export interface CopyOptions {
-  /**
-   * Whether to overwrite existing file or directory.
-   *
-   * @default {false}
-   */
-  overwrite?: boolean;
-  /**
-   * When `true`, will set last modification and access times to the ones of
-   * the original source files. When `false`, timestamp behavior is
-   * OS-dependent.
-   *
-   * > [!NOTE]
-   * > This option is currently unsupported for symbolic links.
-   *
-   * @default {false}
-   */
-  preserveTimestamps?: boolean;
-}
-
 export interface FileInfo {
   /** The name of the file. */
   name: string;
@@ -30,4 +9,22 @@ export interface FileInfo {
   isFile: boolean;
   /** True if this is a directory. */
   isDirectory: boolean;
+}
+
+export interface WriteFileOptions {
+  /**
+   * If set to true, will append to a file instead of overwriting previous contents.
+   * @default false
+   */
+  append?: boolean;
+  /**
+   * Sets the option to allow creating a new file, if one doesn't already exist at the specified path.
+   * @default true
+   */
+  create?: boolean;
+  /**
+   * recursively create directories if they do not exist
+   * @default false
+   */
+  recursive?: boolean;
 }

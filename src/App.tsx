@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Node } from './vertex/node';
 import type { Service } from './vertex/node/service';
-const sharedWorker = new SharedWorker(new URL('./worker.ts', import.meta.url), {
-  name: 'vertexWorker',
+// const sharedWorker = new SharedWorker(new URL('./worker.ts', import.meta.url), {
+//   name: 'vertexWorker',
+// });
+const fsWorker = new Worker(new URL('./fsWorker.ts', import.meta.url), {
+  name: 'fsWorker',
 });
 
 const App = () => {
@@ -10,21 +13,14 @@ const App = () => {
 
   useEffect(() => {
     const boot = async () => {
-      const worker = await Node.create(sharedWorker);
-      worker.onElection(async (service: Service) => {
-        service.add('return1', () => {
-          throw new Error('没有实现');
-          return 111;
-        });
-      });
-
-      // worker.createService('return1', () => {
-      //   console.log('handle return1');
-
-      //   throw new Error('没有实现');
+      // const worker = await Node.create(sharedWorker);
+      // worker.onElection(async (service: Service) => {
+      //   service.add('return1', () => {
+      //     throw new Error('没有实现');
+      //     return 111;
+      //   });
       // });
-
-      setWorker(worker);
+      // setWorker(worker);
     };
     boot();
   }, []);

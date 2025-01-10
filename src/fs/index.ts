@@ -1,5 +1,5 @@
 import { OPFSOperator } from './operator';
-import type { FileInfo } from './types';
+import type { FileInfo, WriteFileOptions } from './types';
 
 export class OPFS {
   private opfsOperator: OPFSOperator;
@@ -11,8 +11,20 @@ export class OPFS {
   }
   private constructor(operator: OPFSOperator) {
     this.opfsOperator = operator;
-    console.log(this.opfsOperator.root);
-    this.drop();
+    //@ts-ignore
+    globalThis.opfs = this;
+    this.test();
+  }
+  async test() {
+    await this.writeFile('/init/test.txt', 'hello world', {
+      create: true,
+      recursive: true,
+      append: true,
+    });
+    // await this.writeFile('/init/test.txt', 'hello world', {
+    //   create: true,
+    //   append: true,
+    // });
   }
 
   async stat(path: string) {
@@ -43,9 +55,30 @@ export class OPFS {
     return this.opfsOperator.mkdir(path);
   }
 
+  /**
+   * 便捷递归删除
+   * @param path
+   * @returns
+   */
   async remove(path: string) {
-    const handle = await this.opfsOperator.getPathHandle(path);
-    if (handle instanceof FileSystemFileHandle) {
+    const handle = await this.opfsOperator.getParentHandle(path);
+    return handle.removeEntry(OPFSOperator.formatPath(path).pop()!);
+  }
+
+  async writeFile(
+    path: string,
+    data: string | ArrayBuffer | ArrayBufferView | Blob,
+    options: WriteFileOptions = {},
+  ) {
+    if (typeof data === 'string') {
+      const _data = new TextEncoder().encode(data);
+      return this.opfsOperator.writeFile(path, _data, options);
+    } else if (data instanceof Blob) {
+      const _data = await data.arrayBuffer();
+      debugger;
+      return this.opfsOperator.writeFile(path, _data, options);
+    } else {
+      return this.opfsOperator.writeFile(path, data, options);
     }
   }
 

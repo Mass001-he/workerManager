@@ -27,10 +27,10 @@ export class Council {
 
   constructor() {
     this.logger.info('Created').print();
-    this._onLeaderChange.event((e) => {
+    this.onLeaderChange((e) => {
       this.logger.info(`Leader change:`, e).print();
     });
-    this._onNoCandidate.event(() => {
+    this.onNoCandidate(() => {
       this.logger.info('No candidate').print();
     });
   }

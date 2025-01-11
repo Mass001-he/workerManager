@@ -4,9 +4,9 @@ import { Emitter, Logger } from '../../utils';
  */
 export class Council {
   /** 任期时间
-   * @default 5 * 60 * 1000 (5分钟)
+   * @default {} 2 * 60 * 1000
    */
-  static TermOfOffice = 4000; //5 * 60 * 1000;
+  static TermOfOffice = 2 * 60 * 1000;
   static setTermOfOffice(time: number) {
     Logger.scope('Council').info('Set term of office:', time);
     Council.TermOfOffice = time;
@@ -123,10 +123,10 @@ export class Council {
         this.reElected();
       } else {
         this.campaigners.push(candidate);
-        // this.tenureCountdown();
-        // this.logger
-        //   .info(`tenureCountdown Campaigners:`, this.campaigners)
-        //   .print();
+        this.tenureCountdown();
+        this.logger
+          .info(`tenureCountdown Campaigners:`, this.campaigners)
+          .print();
       }
     } else {
       this.changeLeader(candidate);

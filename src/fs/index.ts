@@ -16,12 +16,9 @@ export class OPFS {
     const opfs = new OPFS(opfsOperator);
     return opfs;
   }
+  
   private constructor(operator: OPFSOperator) {
     this.opfsOperator = operator;
-    this.writeFile('test.txt', 'hello world');
-    this.writeFile('test2.txt', 'hello world2');
-    this.writeFile('test3.txt', 'hello world3');
-    this.snapshot();
   }
 
   async stat(path: string) {

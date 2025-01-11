@@ -1,9 +1,9 @@
 import { OpfsSAHPoolDatabase } from '@sqlite.org/sqlite-wasm';
 import { ChatModel } from './models/ChatModel';
 import { Action } from './utils/constant';
-import { Logger } from '../vertex/utils';
+import { Logger } from '../utils';
 
-export interface IDbOptions {}
+export interface DBOptions {}
 
 export class DB {
   worker: Worker;
@@ -11,7 +11,7 @@ export class DB {
   chatModel?: ChatModel;
   private logger: Logger = Logger.scope('DB');
 
-  constructor(public options: IDbOptions = {}) {
+  constructor(public options: DBOptions = {}) {
     this.worker = new Worker(new URL('./worker.ts', import.meta.url), {
       name: 'workerAndDb',
       type: 'module',

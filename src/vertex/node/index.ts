@@ -1,4 +1,4 @@
-import { Emitter, Logger } from '../utils';
+import { Emitter, Logger } from '../../utils';
 import { Service } from './service';
 import { SchedulerAction, TabAction } from '../controller/constant';
 import {
@@ -12,7 +12,7 @@ import {
   type PayloadLike,
   type ResponsePayload,
 } from '../types';
-import { Counter } from '../utils';
+import { Counter } from '../../utils';
 
 const DelayMs = 1500;
 
@@ -46,7 +46,7 @@ export class Node {
 
   private logger = Logger.scope('Node');
 
-  server: Service | undefined;
+  service: Service | undefined;
 
   #isLeader: boolean;
   get isLeader() {
@@ -133,7 +133,7 @@ export class Node {
           this._onElection.fire(server);
         } else {
           this.#isLeader = false;
-          this.server?.destroy();
+          this.service?.destroy();
         }
       }
     });
@@ -190,7 +190,7 @@ export class Node {
 
   private onServerDidCreate(server: Service) {
     this.logger.info('ServerDidCreate').print();
-    this.server = server;
+    this.service = server;
 
     this.handleTasks(this._cacheTask);
     this._cacheTask = [];
@@ -199,13 +199,13 @@ export class Node {
   private handleTasks(tasks: any[]) {
     tasks.forEach(async (task) => {
       try {
-        if (this.server === undefined) {
+        if (this.service === undefined) {
           this.logger.info('server is undefined').print();
           return;
         }
         const { serviceName, params } = task.data;
 
-        const handle = this.server.get(serviceName);
+        const handle = this.service.get(serviceName);
         const res = await handle(params);
         const _payload: DispatchResponsePayload = {
           data: res,
@@ -247,7 +247,7 @@ export class Node {
     this.logger.info('onDispatchRequest', payload).print();
     const { data } = payload;
     const { tasks } = data;
-    if (this.server === undefined) {
+    if (this.service === undefined) {
       this._cacheTask = [...this._cacheTask, ...tasks];
       return;
     }
@@ -330,7 +330,7 @@ export class Node {
         action: SchedulerAction.Destroy,
       },
     });
-    this.server?.destroy();
+    this.service?.destroy();
     this.port?.close();
     this.promiseMap.clear();
     this._onNotice.dispose();

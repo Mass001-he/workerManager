@@ -1,6 +1,6 @@
-import { Emitter, Logger } from '../utils';
+import { Emitter, Logger } from '../../utils';
 import { MessageType, type PayloadLike, type TabDescriptor } from '../types';
-import { Counter } from '../utils';
+import { Counter } from '../../utils';
 
 export class TabManager {
   public tabs: TabDescriptor[] = [];

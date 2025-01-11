@@ -1,4 +1,4 @@
-import { Logger } from '../utils';
+import { Logger } from '../../utils';
 export interface ServiceHandler<P = any, R = any> {
   (args: P): R;
 }

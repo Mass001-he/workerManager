@@ -1,4 +1,4 @@
-import { Emitter, Logger } from '../utils';
+import { Emitter, Logger } from '../../utils';
 export interface EventQueueOptions<T> {
   filter: (item: Partial<T>, task: T) => boolean;
 }

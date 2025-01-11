@@ -1,30 +1,24 @@
 import { useEffect, useState } from 'react';
 import { Node } from './vertex/node';
 import type { Service } from './vertex/node/service';
-import { DB } from './db/index';
+import { registerService } from './service';
 
-// const sharedWorker = new SharedWorker(new URL('./worker.ts', import.meta.url), {
-//   name: 'vertexWorker',
-// });
-const fsWorker = new Worker(new URL('./fsWorker.ts', import.meta.url), {
-  name: 'fsWorker',
+const sharedWorker = new SharedWorker(new URL('./worker.ts', import.meta.url), {
+  name: 'vertexWorker',
 });
-
-const db = new DB();
 
 const App = () => {
   const [worker, setWorker] = useState<Node | null>(null);
 
   useEffect(() => {
     const boot = async () => {
-      // const worker = await Node.create(sharedWorker);
-      // worker.onElection(async (service: Service) => {
-      //   service.add('return1', () => {
-      //     throw new Error('没有实现');
-      //     return 111;
-      //   });
-      // });
-      // setWorker(worker);
+      const worker = await Node.create(sharedWorker,{
+        
+      });
+      worker.onElection(async (service: Service) => {
+        registerService(service);
+      });
+      setWorker(worker);
     };
     boot();
 

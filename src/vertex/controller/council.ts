@@ -1,4 +1,4 @@
-import { Emitter, Logger } from '../utils';
+import { Emitter, Logger } from '../../utils';
 /**
  * 理事会(领导选举类)
  */

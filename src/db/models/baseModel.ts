@@ -1,5 +1,5 @@
 import { OpfsSAHPoolDatabase } from '@sqlite.org/sqlite-wasm';
-import { Logger } from '../../vertex/utils';
+import { Logger } from '../../utils';
 
 export const model = {
   varchar: (length = 255) => {

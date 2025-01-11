@@ -1,4 +1,5 @@
 import type { SchedulerAction, TabAction } from './controller/constant';
+import type { Service } from './node/service';
 
 export enum MessageType {
   /** 不需要调度器响应的请求 */
@@ -116,4 +117,6 @@ export interface NodeOptions {
    * @default true
    */
   broadcastSelf?: boolean;
+
+  onElection?: (service: Service) => void;
 }

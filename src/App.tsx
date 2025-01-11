@@ -12,13 +12,12 @@ const App = () => {
 
   useEffect(() => {
     const boot = async () => {
-      const worker = await Node.create(sharedWorker,{
-        
+      const node = await Node.create(sharedWorker, {
+        onElection: async (service: Service) => {
+          registerService(service);
+        },
       });
-      worker.onElection(async (service: Service) => {
-        registerService(service);
-      });
-      setWorker(worker);
+      setWorker(node);
     };
     boot();
 
@@ -65,11 +64,7 @@ const App = () => {
   const addChat = () => {
     // db.chatModel?.add();
   };
-  const searchAllChat = async () => {
-    // 查询所有聊天
-    const chats = await db.chatModel?.getAllChats();
-    console.log('All chats:', chats);
-  };
+  const searchAllChat = async () => {};
   return (
     <div>
       <button onClick={postManager}>无返回值发送消息</button>

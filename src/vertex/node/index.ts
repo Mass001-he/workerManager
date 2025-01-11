@@ -39,7 +39,7 @@ export class Node {
   onBroadcast = this._onBroadcast.event;
 
   private _onElection = new Emitter<Service>();
-  onElection = this._onElection.event;
+  private onElection = this._onElection.event;
 
   static instance: Node | null = null;
   private static instancePromise: Promise<Node> | null = null;
@@ -127,15 +127,19 @@ export class Node {
         const currentLeader = e.data.id;
         if (this.#tabId === currentLeader) {
           this.#isLeader = true;
-          const server = new Service();
-          this.onServerDidCreate(server);
-
-          this._onElection.fire(server);
+          this.service = new Service();
+          this.handleTasks(this._cacheTask);
+          this._cacheTask = [];
+          this._onElection.fire(this.service);
         } else {
           this.#isLeader = false;
           this.service?.destroy();
         }
       }
+    });
+
+    this.onElection((service) => {
+      this.options.onElection?.(service);
     });
   };
 
@@ -186,14 +190,6 @@ export class Node {
       }
       this.promiseMap.delete(reqId);
     }
-  }
-
-  private onServerDidCreate(server: Service) {
-    this.logger.info('ServerDidCreate').print();
-    this.service = server;
-
-    this.handleTasks(this._cacheTask);
-    this._cacheTask = [];
   }
 
   private handleTasks(tasks: any[]) {
@@ -334,6 +330,8 @@ export class Node {
     this.port?.close();
     this.promiseMap.clear();
     this._onNotice.dispose();
+    this._onBroadcast.dispose();
+    this._onElection.dispose();
     this._cacheTask = [];
   };
 }

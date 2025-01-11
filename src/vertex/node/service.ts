@@ -1,4 +1,4 @@
-import { Logger } from '../../utils';
+import { Emitter, Logger } from '../../utils';
 export interface ServiceHandler<P = any, R = any> {
   (args: P): R;
 }
@@ -6,6 +6,8 @@ export interface ServiceHandler<P = any, R = any> {
 export class Service {
   private logger = Logger.scope('Service');
   private serverMap: Map<string, ServiceHandler> = new Map();
+  private _onDestroy = new Emitter<void>();
+  onDestroy = this._onDestroy.event;
 
   constructor() {
     this.logger.info('Created').print();
@@ -26,6 +28,7 @@ export class Service {
 
   destroy() {
     this.logger.info('destroy').print();
+    this._onDestroy.fire();
     this.serverMap.clear();
   }
 }

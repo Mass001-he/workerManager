@@ -1,37 +1,41 @@
 import * as Comlink from 'comlink';
-import initSqlite3, { OpfsSAHPoolDatabase } from '@sqlite.org/sqlite-wasm';
+import initSqlite3, {
+  OpfsSAHPoolDatabase,
+  type SAHPoolUtil,
+} from '@sqlite.org/sqlite-wasm';
 import { Logger } from '../utils';
 
-export interface DBConnectOptions {
-  directory?: string;
-}
-
 class DBServer {
-  private connection: OpfsSAHPoolDatabase | null = null;
+  private connection: {
+    poolUtil: SAHPoolUtil;
+    db: OpfsSAHPoolDatabase;
+  } | null = null;
   private logger: Logger = Logger.scope('DBServer');
 
-  async connect(name: string, options: DBConnectOptions) {
-    this.logger.info('Connecting to database:', name, options).print();
+  async connect(name: string) {
+    this.logger.info('Connecting to database:', name).print();
     const sqlite3 = await initSqlite3();
-    const { directory } = options;
+    const poolUtil = await sqlite3.installOpfsSAHPoolVfs({});
+    const { OpfsSAHPoolDb } = poolUtil;
 
     try {
       // pollUtil 为可用于执行文件池的基本管理的实用程序对象
-      const poolUtil = await sqlite3.installOpfsSAHPoolVfs({
-        directory,
-      });
-      const { OpfsSAHPoolDb } = poolUtil;
-      this.connection = new OpfsSAHPoolDb(name);
-      return true;
+      const db = new OpfsSAHPoolDb(name);
+      const connection = {
+        poolUtil,
+        db,
+      };
+      this.connection = connection;
+      return db.isOpen();
     } catch (error) {
       this.logger.error('Failed to install OPFS VFS:', error).print();
       return false;
     }
   }
 
-  private getConnection() {
+  private getDBIns() {
     if (this.connection) {
-      return this.connection;
+      return this.connection.db;
     } else {
       throw new Error('No connection');
     }
@@ -39,13 +43,16 @@ class DBServer {
 
   async exec(sql: string) {
     this.logger.info('Executing SQL:', sql).print();
-    this.getConnection().exec(sql);
+    return this.getDBIns().exec(sql, {
+      rowMode: 'array',
+    });
   }
 
   async close() {
-    this.logger.info('Closing database connection').print();
     if (this.connection) {
-      this.connection.close();
+      this.connection.db.close();
+      await this.connection.poolUtil.removeVfs();
+      this.logger.info('Closing database connection').print();
       this.connection = null;
     }
   }

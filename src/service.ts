@@ -3,7 +3,12 @@ import type { Service } from './vertex/node/service';
 
 export async function registerService(service: Service) {
   console.log('registerService', service);
-  const dbClient = await new DBClient();
+  const dbClient = await new DBClient([
+    {
+      name: 'string',
+      age: 'number',
+    },
+  ]);
   await dbClient.connect('user.db');
   service.onDestroy(async () => {
     await dbClient.close();

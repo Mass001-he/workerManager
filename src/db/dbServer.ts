@@ -4,13 +4,20 @@ import initSqlite3, {
   type SAHPoolUtil,
 } from '@sqlite.org/sqlite-wasm';
 import { Logger } from '../utils';
+import { ORM } from './orm';
 
-class DBServer {
-  private connection: {
+export class DBServer {
+  public connection: {
     poolUtil: SAHPoolUtil;
     db: OpfsSAHPoolDatabase;
   } | null = null;
+  private orm: ORM | null = null;
   private logger: Logger = Logger.scope('DBServer');
+  public models: any[];
+
+  constructor(models: any[]) {
+    this.models = models;
+  }
 
   async connect(name: string) {
     this.logger.info('Connecting to database:', name).print();
@@ -26,7 +33,13 @@ class DBServer {
         db,
       };
       this.connection = connection;
-      return db.isOpen();
+      const isOpen = db.isOpen();
+      if (isOpen) {
+        this.logger.info('Database connection established').print();
+        this.orm = new ORM(this);
+        return true;
+      }
+      return false;
     } catch (error) {
       this.logger.error('Failed to install OPFS VFS:', error).print();
       return false;

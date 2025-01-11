@@ -6,7 +6,7 @@ export class Council {
   /** 任期时间
    * @default 5 * 60 * 1000 (5分钟)
    */
-  static TermOfOffice = 6000; //5 * 60 * 1000;
+  static TermOfOffice = 4000; //5 * 60 * 1000;
   static setTermOfOffice(time: number) {
     Logger.scope('Council').info('Set term of office:', time);
     Council.TermOfOffice = time;
@@ -86,6 +86,8 @@ export class Council {
       .print();
     this._timer = setTimeout(() => {
       this.abdicate();
+      clearTimeout(this._timer);
+      this._timer = undefined;
     }, Council.TermOfOffice);
   }
 
@@ -135,6 +137,7 @@ export class Council {
     this.logger.info('Council destroyed').print();
     this._onLeaderChange.dispose();
     this._onNoCandidate.dispose();
+    this._timer = undefined;
     clearTimeout(this._timer);
   }
 }

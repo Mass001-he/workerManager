@@ -103,15 +103,15 @@ export class Node {
     window.onbeforeunload = () => {
       this.destroy();
     };
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') {
-        setTimeout(() => {
-          if (document.visibilityState === 'visible') {
-            this.campaign();
-          }
-        }, DelayMs);
-      }
-    });
+    // document.addEventListener('visibilitychange', () => {
+    //   if (document.visibilityState === 'visible') {
+    //     setTimeout(() => {
+    //       if (document.visibilityState === 'visible') {
+    //         this.campaign();
+    //       }
+    //     }, DelayMs);
+    //   }
+    // });
     this.register();
     this.port.start();
 

@@ -123,10 +123,10 @@ export class Council {
         this.reElected();
       } else {
         this.campaigners.push(candidate);
-        this.tenureCountdown();
-        this.logger
-          .info(`tenureCountdown Campaigners:`, this.campaigners)
-          .print();
+        // this.tenureCountdown();
+        // this.logger
+        //   .info(`tenureCountdown Campaigners:`, this.campaigners)
+        //   .print();
       }
     } else {
       this.changeLeader(candidate);

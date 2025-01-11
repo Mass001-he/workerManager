@@ -1,25 +1,31 @@
-import { DBClient } from './db/dbClient';
+import { createWorker } from './db/dbClient';
 import type { Service } from './vertex/node/service';
+
+declare global {
+  interface Window {
+    closeWorker: () => void;
+  }
+}
 
 export async function registerService(service: Service) {
   console.log('registerService', service);
-  const dbClient = await new DBClient([
-    {
-      name: 'string',
-      age: 'number',
-    },
-  ]);
-  await dbClient.connect('user.db');
-  service.onDestroy(async () => {
-    await dbClient.close();
+  const { dbClient, close } = await createWorker();
+  window.closeWorker = close;
+  await dbClient.connect('test.db');
+  service.onDestroy(close);
+  service.add('createTable', async () => {
+    //创建表
+    await dbClient.exec(
+      `CREATE TABLE IF NOT EXISTS user (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT);`,
+    );
+    await dbClient.exec(`INSERT INTO user (name) VALUES ('张三');`);
+    await dbClient.exec(`INSERT INTO user (name) VALUES ('李四');`);
+    await dbClient.exec(`INSERT INTO user (name) VALUES ('王五');`);
+    await dbClient.exec(`INSERT INTO user (name) VALUES ('赵六');`);
+    return '创建表成功';
   });
-  // console.log('isOpen', isOpen);
-  // // await dbClient.exec(
-  // //   `CREATE TABLE IF NOT EXISTS user (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)`,
-  // // );
-  // // await dbClient.exec(`INSERT INTO user (name) VALUES ('test')`);
-  // // await dbClient.exec(`INSERT INTO user (name) VALUES ('test2')`);
-  // // await dbClient.exec(`INSERT INTO user (name) VALUES ('test3')`);
-  // const res = await dbClient.exec('select * from user');
-  // console.log('res', res);
+  service.add('getTest', async (data: string) => {
+    //拿到所有的表
+    return dbClient.exec(data);
+  });
 }

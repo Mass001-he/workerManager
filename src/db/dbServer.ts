@@ -60,15 +60,6 @@ export class DBServer {
       rowMode: 'array',
     });
   }
-
-  async close() {
-    if (this.connection) {
-      this.connection.db.close();
-      await this.connection.poolUtil.removeVfs();
-      this.logger.info('Closing database connection').print();
-      this.connection = null;
-    }
-  }
 }
 
 export type DBServerClassType = typeof DBServer;

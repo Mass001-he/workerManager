@@ -1,12 +1,16 @@
 import { useEffect, useState } from 'react';
 import { Node } from './vertex/node';
 import type { Service } from './vertex/node/service';
+import { DB } from './db/index';
+
 // const sharedWorker = new SharedWorker(new URL('./worker.ts', import.meta.url), {
 //   name: 'vertexWorker',
 // });
 const fsWorker = new Worker(new URL('./fsWorker.ts', import.meta.url), {
   name: 'fsWorker',
 });
+
+const db = new DB();
 
 const App = () => {
   const [worker, setWorker] = useState<Node | null>(null);
@@ -23,6 +27,10 @@ const App = () => {
       // setWorker(worker);
     };
     boot();
+
+    return () => {
+      worker?.destroy();
+    };
   }, []);
 
   const sendMessage = async () => {
@@ -59,12 +67,26 @@ const App = () => {
       console.log('watchBroadcast', data);
     });
   };
+
+  const addChat = () => {
+    // db.chatModel?.add();
+  };
+  const searchAllChat = async () => {
+    // 查询所有聊天
+    const chats = await db.chatModel?.getAllChats();
+    console.log('All chats:', chats);
+  };
   return (
     <div>
       <button onClick={postManager}>无返回值发送消息</button>
       <button onClick={sendMessage}>有返回值发送消息 </button>
       <button onClick={broadcast}>广播</button>
       <button onClick={watchBroadcast}>监听广播</button>
+
+      <div>
+        <button onClick={addChat}>db添加chat</button>
+        <button onClick={searchAllChat}>查询所有聊天</button>
+      </div>
     </div>
   );
 };

@@ -5,18 +5,20 @@ import initSqlite3, {
 } from '@sqlite.org/sqlite-wasm';
 import { Logger } from '../utils';
 import { ORM } from './orm';
+import type { Table } from './orm/column';
 
-export class DBServer {
+export class DBServer<T extends Table[]> {
   public connection: {
     poolUtil: SAHPoolUtil;
     db: OpfsSAHPoolDatabase;
   } | null = null;
-  private orm: ORM | null = null;
+  private orm: ORM<T>;
   private logger: Logger = Logger.scope('DBServer');
-  public models: any[];
+  public tables: T;
 
-  constructor(models: any[]) {
-    this.models = models;
+  constructor(tables: T) {
+    this.tables = tables;
+    this.orm = new ORM<T>(tables);
   }
 
   async connect(name: string) {
@@ -36,7 +38,6 @@ export class DBServer {
       const isOpen = db.isOpen();
       if (isOpen) {
         this.logger.info('Database connection established').print();
-        this.orm = new ORM(this);
         return true;
       }
       return false;

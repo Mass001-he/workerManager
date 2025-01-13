@@ -226,11 +226,18 @@ class BooleanColumnDescriptor extends BaseColumnDescriptor {
   }
 }
 
-class Table<T extends Record<string, BaseColumnDescriptor>> {
+export class Table<T extends Record<string, BaseColumnDescriptor> = any> {
   constructor(
     public name: string,
     public columns: T,
   ) {}
+
+  genCreateSql() {
+    const columns = Object.entries(this.columns).map(([name, column]) => {
+      return `${name} ${column.genCreateSql().join(' ')}`;
+    });
+    return `CREATE TABLE IF NOT EXISTS ${this.name} (${columns.join(', ')});`;
+  }
 }
 
 export function text() {
@@ -254,19 +261,4 @@ export function table<T extends Record<string, BaseColumnDescriptor>>(
   columns: T,
 ) {
   return new Table(name, columns);
-}
-
-const UserTable = table('user', {
-  name: text().required().max(20),
-  age: integer().required().min(0).max(200),
-  createAt: timestamp().required().defaultNow(),
-});
-
-function genCreateSql<T extends Record<string, BaseColumnDescriptor>>(
-  table: Table<T>,
-) {
-  const columns = Object.entries(table.columns).map(([name, column]) => {
-    return `${name} ${column.genCreateSql().join(' ')}`;
-  });
-  return `CREATE TABLE IF NOT EXISTS ${table.name} (${columns.join(', ')});`;
 }

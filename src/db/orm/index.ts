@@ -1,19 +1,14 @@
 import { Logger } from '../../utils';
-import type { DBServer } from '../dbServer';
+import type { Table } from './column';
 
-export class ORM {
+export class ORM<T extends Table[]> {
   private logger = Logger.scope('ORM');
-  constructor(private server: DBServer) {
+  constructor(private tables: T) {
     this.migration();
   }
 
   async migration() {
-    const { models, exec } = this.server;
     this.logger.info('Migration start').print();
-    this.logger.info('Loading models:', models).print();
-    models.forEach((model) => {
-      // model todo
-      model.createTable();
-    });
+    this.logger.info('Loading models:', this.tables).print();
   }
 }

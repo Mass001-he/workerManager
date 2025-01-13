@@ -180,13 +180,13 @@ export class Node {
 
   private onResponse(payload: ResponsePayload) {
     this.logger.info('onResponse', payload).print();
-    const { success, reqId, data } = payload;
+    const { success, reqId } = payload;
     const mHandlerPromiser = this.promiseMap.get(reqId);
     if (mHandlerPromiser) {
       if (success) {
-        mHandlerPromiser.resolve(data);
+        mHandlerPromiser.resolve(payload);
       } else {
-        mHandlerPromiser.reject(data);
+        mHandlerPromiser.reject(payload);
       }
       this.promiseMap.delete(reqId);
     }

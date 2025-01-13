@@ -17,8 +17,6 @@ export async function createWorker() {
       //@ts-ignore
       worker = null;
       //@ts-ignore
-      WrapWorker = null;
-      //@ts-ignore
       rpc = null;
     },
   };

@@ -1,15 +1,11 @@
 // memberInfos: "&id, isFriend, name, bb_id, auid",
 
-import { BaseModel, model } from './baseModel';
+import { boolean, table, text } from '../orm/column';
 
-export const MemberInfosSchema = {
-  name: model.varchar(),
-  id: model.varchar(),
-  isFriend: model.boolean(),
-  bb_id: model.varchar(),
-  auid: model.varchar(),
-};
-
-export class MemberInfosModel extends BaseModel {
-  tableName: string = 'memberInfos';
-}
+export const MemberInfosTable = table('memberInfos', {
+  id: text().primary().unique(),
+  isFriend: boolean(),
+  bb_id: text(),
+  auid: text(),
+  name: text().required(),
+});

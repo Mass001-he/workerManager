@@ -14,7 +14,6 @@ export class ORM<T extends Table[]> {
         return table.genCreateSql();
       })
       .join('\n');
-    this.logger.info('SQL:\n', sql).print();
     return this.server.exec(sql);
   }
 }

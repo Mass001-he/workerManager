@@ -8,7 +8,7 @@ declare global {
 }
 
 export async function registerService(service: Service) {
-  console.log('registerService', service);
+  service.logger.info('registerService');
   const { dbClient, close } = await createWorker();
   window.closeWorker = close;
   await dbClient.connect('test.db');

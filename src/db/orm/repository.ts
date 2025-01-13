@@ -1,6 +1,6 @@
 import { Logger } from '../../utils';
 import type { DBServer } from '../dbServer';
-import type { Table, TableRow } from './column';
+import type { BaseColumnDescriptor, Table, TableRow } from './column';
 
 export class Repository<T extends Table> {
   static insMap = new Map<string, Repository<Table>>();
@@ -15,6 +15,14 @@ export class Repository<T extends Table> {
   }
   private logger: Logger;
 
+  get name() {
+    return this.table.name;
+  }
+
+  get columns() {
+    return this.table.columns as Record<string, BaseColumnDescriptor>;
+  }
+
   private constructor(
     private table: T,
     private server: DBServer<[T]>,
@@ -22,6 +30,8 @@ export class Repository<T extends Table> {
     this.logger = Logger.scope(`Repository[${table.name}]`);
     this.logger.info('created').print();
   }
+
+  private validateColumns(columns: TableRow<T['columns']>) {}
 
   insert(item: TableRow<T['columns']>) {}
 

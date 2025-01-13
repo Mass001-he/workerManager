@@ -1,4 +1,4 @@
-abstract class BaseColumnDescriptor {
+export abstract class BaseColumnDescriptor {
   /** 是否必填 */
   _required: boolean = false;
   /** 是否唯一 */

@@ -4,7 +4,7 @@ export interface ServiceHandler<P = any, R = any> {
 }
 
 export class Service {
-  private logger = Logger.scope('Service');
+  public logger = Logger.scope('Service');
   private serverMap: Map<string, ServiceHandler> = new Map();
   private _onDestroy = new Emitter<void>();
   onDestroy = this._onDestroy.event;

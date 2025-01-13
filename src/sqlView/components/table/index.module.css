@@ -1,0 +1,120 @@
+.root {
+  --cell-even-radius: 4px;
+  --cell-even-background-color: rgba(190, 190, 190, 0.2);
+  --cell-vertical-padding: 2px;
+  --cell-horizontal-padding: 6px;
+  --cell-active-background-color: #0078d4;
+  background-color: white;
+  height: 100%;
+  box-shadow: -3px 0 5px -3px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  .tableWrapper {
+    flex: 1;
+    height: 0;
+    width: 100%;
+    overflow: auto;
+  }
+  .table {
+    border: none;
+    border-collapse: collapse;
+    width: 100%;
+    thead {
+      tr {
+        position: sticky;
+        top: 0;
+        box-shadow: 0 3px 3px -3px rgba(46, 46, 46, 0.3);
+        background-color: white;
+        th {
+          padding: 5px 0;
+          padding-left: var(--cell-horizontal-padding);
+          padding-right: var(--cell-horizontal-right);
+          text-align: left;
+        }
+      }
+    }
+    tbody {
+      overflow: auto;
+      height: 100%;
+      tr {
+        td {
+          padding-left: var(--cell-horizontal-padding);
+          padding-right: var(--cell-horizontal-padding);
+          padding-top: var(--cell-vertical-padding);
+          padding-bottom: var(--cell-vertical-padding);
+        }
+      }
+
+      .row {
+        &.selected {
+          color: white;
+          td {
+            background-color: var(--cell-active-background-color);
+            &:nth-child(2) {
+              background-color: var(--cell-active-background-color);
+            }
+            &:nth-last-child(2) {
+              background-color: var(--cell-active-background-color);
+            }
+          }
+        }
+      }
+      tr {
+        td:nth-child(2) {
+          border-top-left-radius: var(--cell-even-radius);
+          border-bottom-left-radius: var(--cell-even-radius);
+        }
+        td:nth-last-child(2) {
+          border-top-right-radius: var(--cell-even-radius);
+          border-bottom-right-radius: var(--cell-even-radius);
+        }
+        td.placeholder {
+          background-color: transparent !important;
+          width: 0px;
+        }
+      }
+      tr:nth-child(even) {
+        td {
+          background-color: var(--cell-even-background-color);
+        }
+        td:nth-child(2) {
+          background-color: var(--cell-even-background-color);
+        }
+        td:nth-last-child(2) {
+          background-color: var(--cell-even-background-color);
+        }
+      }
+    }
+  }
+  .tools {
+    display: flex;
+    padding: 10px;
+    justify-content: space-between;
+    background-color: #f1f2f3;
+    box-shadow: inset 0 -1px 0 0 rgba(0, 0, 0, 0.1);
+
+    .left,
+    .right {
+      display: flex;
+      align-items: center;
+    }
+  }
+  .pagination {
+    padding: 12px;
+    flex: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+
+    .pageList {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    span {
+      font-size: 12px;
+    }
+  }
+}

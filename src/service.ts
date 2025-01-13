@@ -10,15 +10,12 @@ declare global {
 
 export async function registerService(service: Service) {
   service.logger.info('registerService');
-  const { rpc, close } = await createWorker([
-    table('user', {
-      id: integer().primary(),
-      name: text().required(),
-      age: integer().required().min(0).max(150),
-    }),
-  ]);
-
+  const { rpc, close } = await createWorker();
   window.closeWorker = close;
   await rpc.connect('test.db');
   service.onDestroy(close);
+
+  service.add('exec', (sql: string) => {
+    return rpc.exec(sql);
+  });
 }

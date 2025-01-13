@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Node } from './vertex/node';
 import type { Service } from './vertex/node/service';
 import { registerService } from './service';
+import { SQLView } from './sqlView';
 
 const sharedWorker = new SharedWorker(new URL('./worker.ts', import.meta.url), {
   name: 'vertexWorker',
@@ -9,12 +10,14 @@ const sharedWorker = new SharedWorker(new URL('./worker.ts', import.meta.url), {
 
 const App = () => {
   const [worker, setWorker] = useState<Node | null>(null);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const boot = async () => {
       const node = await Node.create(sharedWorker, {
         onElection: async (service: Service) => {
-          registerService(service);
+          await registerService(service);
+          setLoading(true);
         },
       });
       setWorker(node);
@@ -75,6 +78,9 @@ const App = () => {
     // db.chatModel?.add();
   };
   const searchAllChat = async () => {};
+  if (!loading) {
+    return null;
+  }
   return (
     <div>
       <button onClick={test}>test</button>
@@ -87,6 +93,24 @@ const App = () => {
       <div>
         <button onClick={addChat}>db添加chat</button>
         <button onClick={searchAllChat}>查询所有聊天</button>
+      </div>
+
+      <div
+        style={{
+          width: '100%',
+          height: 400,
+        }}
+      >
+        <SQLView
+          exec={async (sql) => {
+            await worker?.request('exec', sql);
+          }}
+          query={async (sql) => {
+            const res = await worker?.request('exec', sql);
+            console.log(res);
+            return res?.data;
+          }}
+        />
       </div>
     </div>
   );

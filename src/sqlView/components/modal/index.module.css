@@ -1,0 +1,46 @@
+.modal {
+  position: fixed;
+  top: 50%;
+  left: 0;
+  transform: translate(0, -30%);
+  border: none;
+  padding: 0;
+  background: white;
+  box-shadow:
+    0 2px 10px rgba(0, 0, 0, 0.1),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.1);
+  min-width: 80px;
+  border-radius: 4px;
+  overflow: hidden;
+  z-index: 9000;
+}
+
+.modalHeader {
+  padding: 4px 16px;
+  font-size: 16px;
+  display: flex;
+  justify-content: space-between;
+  user-select: none;
+}
+
+.modalContent {
+  padding: 0px;
+}
+
+.modalClose {
+  color: rgb(255, 77, 0);
+  background: none;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+
+  &:hover {
+    color: rgb(220, 66, 0);
+  }
+
+  &:active {
+    color: rgb(200, 55, 0);
+  }
+}

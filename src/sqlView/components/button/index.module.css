@@ -1,0 +1,59 @@
+.root {
+  user-select: none;
+  height: auto;
+  border-radius: 6px;
+  border: none;
+  background-color: white;
+  box-shadow:
+    0.5px 0.5px 0.5px rgba(0, 0, 0, 0.3),
+    -0.5px -0.5px 0.5px rgba(0, 0, 0, 0.3),
+    0.5px -0.5px 0.5px rgba(0, 0, 0, 0.3),
+    -0.5px 0.5px 0.5px rgba(0, 0, 0, 0.3);
+  transition: all 0.3s;
+  position: relative;
+  &::before {
+    content: '';
+    position: absolute;
+    border-radius: 6px;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    transition: all 0.2s;
+  }
+  &:hover {
+    &::before {
+      background-color: rgba(72, 72, 72, 0.1);
+    }
+  }
+  &:active {
+    background-color: rgb(241, 241, 241) !important;
+  }
+}
+
+.disabled {
+  background-color: rgb(216, 212, 212) !important;
+  color: rgb(131, 127, 127) !important;
+  &:hover {
+    &::before {
+      background-color: unset !important;
+    }
+  }
+  &:active {
+    background-color: rgb(216, 212, 212) !important;
+  }
+}
+
+.iconBtnRoot {
+  padding: 2px 5px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  &:hover {
+    background-color: rgba(119, 116, 116, 0.1);
+  }
+  &:active {
+    color: white;
+    background-color: rgba(119, 116, 116, 0.6);
+  }
+}

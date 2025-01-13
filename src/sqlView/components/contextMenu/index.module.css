@@ -1,0 +1,19 @@
+.root {
+  position: absolute;
+  background-color: white;
+  border: 1px solid #d1d1d1;
+  border-radius: 4px;
+  z-index: 1000;
+  font-size: 12px;
+  overflow: hidden;
+
+  .item {
+    min-width: 100px;
+    padding: 4px 8px;
+    user-select: none;
+    &:hover {
+      background-color: #469dd7;
+      color: white;
+    }
+  }
+}

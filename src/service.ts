@@ -14,6 +14,7 @@ export async function registerService(service: Service) {
   await dbClient.connect('test.db');
   service.onDestroy(close);
   service.add('createTable', async () => {
+    // dbClient.models
     //创建表
     await dbClient.exec(
       `CREATE TABLE IF NOT EXISTS user (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT);`,

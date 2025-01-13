@@ -8,8 +8,12 @@ export class ORM {
   }
 
   async migration() {
-    const { models } = this.server;
+    const { models, exec } = this.server;
     this.logger.info('Migration start').print();
     this.logger.info('Loading models:', models).print();
+    models.forEach((model) => {
+      // model todo
+      model.createTable();
+    });
   }
 }

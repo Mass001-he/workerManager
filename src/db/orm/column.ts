@@ -5,6 +5,13 @@ export abstract class BaseColumnDescriptor {
   _unique: boolean = false;
   /** 是否主键 */
   _primary: boolean = false;
+  /** 是否自增 */
+  _autoIncrement: boolean = false;
+
+  autoIncrement() {
+    this._autoIncrement = true;
+    return this;
+  }
 
   primary() {
     this._primary = true;
@@ -26,14 +33,17 @@ export abstract class BaseColumnDescriptor {
    */
   genCreateSql(): string[] {
     let sql: string[] = [];
+    if (this._primary) {
+      sql.push('PRIMARY KEY');
+    }
     if (this._required) {
       sql.push('NOT NULL');
     }
     if (this._unique) {
       sql.push('UNIQUE');
     }
-    if (this._primary) {
-      sql.push('PRIMARY KEY');
+    if (this._autoIncrement) {
+      sql.push('AUTOINCREMENT');
     }
     return sql;
   }

@@ -1,37 +1,31 @@
 import { Logger } from '../../utils';
+interface ColumnType<T> {
+  sqlType: string;
+  jsType: T;
+}
 
 export const model = {
-  varchar: (length = 255) => {
+  varchar: (length = 255): ColumnType<string> => {
     return {
       sqlType: `VARCHAR(${length})`,
       jsType: 'string',
     };
   },
-  text: () => {
+  text: (): ColumnType<string> => {
     return {
       sqlType: 'TEXT',
       jsType: 'string',
     };
   },
-  integer: () => {
+  integer: (): ColumnType<number> => {
     return {
       sqlType: `INTEGER`,
-      jsType: 'number',
+      jsType: 0,
     };
-  },
-  real: () => {
-    return {
-      sqlType: `REAL`,
-      jsType: 'number',
-    };
-  },
-  boolean: () => {
-    return {
-      sqlType: `BOOLEAN`,
-      jsType: 'boolean',
-    };
-  },
+  }
 };
+
+
 
 export class BaseModel {
   private logger: Logger = Logger.scope('BaseModel');

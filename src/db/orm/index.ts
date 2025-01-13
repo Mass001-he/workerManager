@@ -1,5 +1,5 @@
-import { Logger } from '../utils';
-import type { DBServer } from './dbServer';
+import { Logger } from '../../utils';
+import type { DBServer } from '../dbServer';
 
 export class ORM {
   private logger = Logger.scope('ORM');

@@ -236,7 +236,7 @@ type ColumnType<T> = T extends TextColumnDescriptor
         ? boolean
         : any;
 
-type TableRow<T extends Record<string, BaseColumnDescriptor>> = {
+export type TableRow<T extends Record<string, BaseColumnDescriptor>> = {
   [K in keyof T]: ColumnType<T[K]>;
 };
 

@@ -6,6 +6,7 @@ import initSqlite3, {
 import { Logger } from '../utils';
 import { ORM } from './orm';
 import { integer, table, text, type Table } from './orm/column';
+import { Repository } from './orm/repository';
 
 export class DBServer<T extends Table[]> {
   public connection: {
@@ -48,7 +49,7 @@ export class DBServer<T extends Table[]> {
     }
   }
 
-  findTable<N extends T[number]['name']>(
+  private findTable<N extends T[number]['name']>(
     name: N,
   ): Extract<T[number], { name: N }> {
     const table = this.tables.find((table) => table.name === name) as Extract<
@@ -59,6 +60,11 @@ export class DBServer<T extends Table[]> {
       throw new Error(`Table ${name} not found`);
     }
     return table;
+  }
+
+  getRepository<N extends T[number]['name']>(name: N) {
+    const table = this.findTable(name);
+    return Repository.create(table, this as any);
   }
 
   private getDBIns() {
@@ -91,5 +97,10 @@ const postTable = table('post', {
 
 const dbServer = new DBServer([userTable, postTable]);
 
-dbServer.findTable('user');
+//test
+dbServer.getRepository('user').insert({
+  name: 'test',
+  age: 18,
+});
+
 Comlink.expose(dbServer);

@@ -1,16 +1,14 @@
 import * as Comlink from 'comlink';
-import type { DBServerClassType } from './dbServer';
+import type { DBServer } from './dbServer';
 import './orm/column';
-import { type Table } from './orm/column';
 
-export async function createWorker<T extends Table[]>(tables: T) {
+export async function createWorker() {
   let worker = new Worker(new URL('./dbServer.ts', import.meta.url), {
     name: 'db',
     type: 'module',
   });
 
-  let WrapWorker = Comlink.wrap<DBServerClassType>(worker);
-  let rpc = await new WrapWorker(tables);
+  let rpc = Comlink.wrap<DBServer<any>>(worker);
 
   return {
     rpc,

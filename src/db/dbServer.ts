@@ -5,7 +5,7 @@ import initSqlite3, {
 } from '@sqlite.org/sqlite-wasm';
 import { Logger } from '../utils';
 import { ORM } from './orm';
-import type { Table } from './orm/column';
+import { integer, table, text, type Table } from './orm/column';
 
 export class DBServer<T extends Table[]> {
   public connection: {
@@ -18,7 +18,7 @@ export class DBServer<T extends Table[]> {
 
   constructor(tables: T) {
     this.tables = tables;
-    this.orm = new ORM<T>(tables);
+    this.orm = new ORM<T>(this);
   }
 
   async connect(name: string) {
@@ -38,6 +38,7 @@ export class DBServer<T extends Table[]> {
       const isOpen = db.isOpen();
       if (isOpen) {
         this.logger.info('Database connection established').print();
+        this.orm.migration();
         return true;
       }
       return false;
@@ -63,6 +64,15 @@ export class DBServer<T extends Table[]> {
   }
 }
 
-export type DBServerClassType = typeof DBServer;
+const dbServer = new DBServer([
+  table('user', {
+    name: text(),
+    age: integer(),
+  }),
+  table('post', {
+    title: text(),
+    content: text(),
+  }),
+]);
 
-Comlink.expose(DBServer);
+Comlink.expose(dbServer);

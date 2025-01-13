@@ -90,8 +90,8 @@ class TextColumnDescriptor
     if (typeof value !== 'string') {
       message.push('value is not a string');
     }
-    if (this._max && value.length !== this._max) {
-      message.push('value length not match');
+    if (this._max && value.length > this._max) {
+      message.push(`value length greater than max: ${this._max}`);
     }
     if (this._enum && !this._enum.includes(value)) {
       message.push('value not in enum');

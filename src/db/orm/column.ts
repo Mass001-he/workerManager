@@ -240,9 +240,12 @@ type TableRow<T extends Record<string, BaseColumnDescriptor>> = {
   [K in keyof T]: ColumnType<T[K]>;
 };
 
-export class Table<T extends Record<string, BaseColumnDescriptor> = any> {
+export class Table<
+  N extends string = any,
+  T extends Record<string, BaseColumnDescriptor> = any,
+> {
   constructor(
-    public name: string,
+    public name: N,
     public columns: T,
   ) {}
 
@@ -251,10 +254,6 @@ export class Table<T extends Record<string, BaseColumnDescriptor> = any> {
       return `${name} ${column.genCreateSql().join(' ')}`;
     });
     return `CREATE TABLE IF NOT EXISTS ${this.name} (${columns.join(', ')});`;
-  }
-
-  insert(data: TableRow<T>) {
-    // 插入数据的实现
   }
 }
 
@@ -274,9 +273,9 @@ export function boolean() {
   return new BooleanColumnDescriptor();
 }
 
-export function table<T extends Record<string, BaseColumnDescriptor>>(
-  name: string,
-  columns: T,
-) {
-  return new Table(name, columns);
+export function table<
+  N extends string,
+  T extends Record<string, BaseColumnDescriptor>,
+>(name: N, columns: T) {
+  return new Table<N, T>(name, columns);
 }

@@ -48,6 +48,19 @@ export class DBServer<T extends Table[]> {
     }
   }
 
+  findTable<N extends T[number]['name']>(
+    name: N,
+  ): Extract<T[number], { name: N }> {
+    const table = this.tables.find((table) => table.name === name) as Extract<
+      T[number],
+      { name: N }
+    >;
+    if (!table) {
+      throw new Error(`Table ${name} not found`);
+    }
+    return table;
+  }
+
   private getDBIns() {
     if (this.connection) {
       return this.connection.db;
@@ -76,11 +89,7 @@ const postTable = table('post', {
   content: text(),
 });
 
-const dbServer = new DBServer([userTable, postTable] as const);
+const dbServer = new DBServer([userTable, postTable]);
 
-userTable.insert({
-  name: 'test',
-  age: 18,
-});
-
+dbServer.findTable('user');
 Comlink.expose(dbServer);

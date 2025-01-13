@@ -56,11 +56,13 @@ export class DBServer<T extends Table[]> {
     }
   }
 
-  async exec(sql: string) {
+  exec(sql: string) {
     this.logger.info('Executing SQL:', sql).print();
-    return this.getDBIns().exec(sql, {
+    const result = this.getDBIns().exec(sql, {
       rowMode: 'array',
     });
+    this.logger.info('Result:', result).print();
+    return result;
   }
 }
 

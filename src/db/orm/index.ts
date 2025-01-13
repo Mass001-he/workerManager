@@ -15,5 +15,6 @@ export class ORM<T extends Table[]> {
       })
       .join('\n');
     this.logger.info('SQL:\n', sql).print();
+    return this.server.exec(sql);
   }
 }

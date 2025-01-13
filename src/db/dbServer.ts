@@ -66,15 +66,21 @@ export class DBServer<T extends Table[]> {
   }
 }
 
-const dbServer = new DBServer([
-  table('user', {
-    name: text(),
-    age: integer(),
-  }),
-  table('post', {
-    title: text(),
-    content: text(),
-  }),
-]);
+const userTable = table('user', {
+  name: text(),
+  age: integer(),
+});
+
+const postTable = table('post', {
+  title: text(),
+  content: text(),
+});
+
+const dbServer = new DBServer([userTable, postTable] as const);
+
+userTable.insert({
+  name: 'test',
+  age: 18,
+});
 
 Comlink.expose(dbServer);

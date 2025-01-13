@@ -226,6 +226,20 @@ class BooleanColumnDescriptor extends BaseColumnDescriptor {
   }
 }
 
+type ColumnType<T> = T extends TextColumnDescriptor
+  ? string
+  : T extends IntegerColumnDescriptor
+    ? number
+    : T extends TimestampColumnDescriptor
+      ? number
+      : T extends BooleanColumnDescriptor
+        ? boolean
+        : any;
+
+type TableRow<T extends Record<string, BaseColumnDescriptor>> = {
+  [K in keyof T]: ColumnType<T[K]>;
+};
+
 export class Table<T extends Record<string, BaseColumnDescriptor> = any> {
   constructor(
     public name: string,
@@ -237,6 +251,10 @@ export class Table<T extends Record<string, BaseColumnDescriptor> = any> {
       return `${name} ${column.genCreateSql().join(' ')}`;
     });
     return `CREATE TABLE IF NOT EXISTS ${this.name} (${columns.join(', ')});`;
+  }
+
+  insert(data: TableRow<T>) {
+    // 插入数据的实现
   }
 }
 

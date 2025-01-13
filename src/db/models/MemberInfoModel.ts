@@ -1,6 +1,6 @@
 // memberInfos: "&id, isFriend, name, bb_id, auid",
 
-import { model } from './baseModel';
+import { BaseModel, model } from './baseModel';
 
 export const MemberInfosSchema = {
   name: model.varchar(),
@@ -10,4 +10,6 @@ export const MemberInfosSchema = {
   auid: model.varchar(),
 };
 
-export class MemberInfosModel {}
+export class MemberInfosModel extends BaseModel {
+  tableName: string = 'memberInfos';
+}

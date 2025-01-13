@@ -1,5 +1,7 @@
 import * as Comlink from 'comlink';
 import type { DBServerClassType } from './dbServer';
+import { ChatModel } from './models/ChatModel';
+import { MemberInfosModel } from './models/MemberInfoModel';
 
 export async function createWorker() {
   let worker = new Worker(new URL('./dbServer.ts', import.meta.url), {
@@ -8,11 +10,7 @@ export async function createWorker() {
   });
 
   let WrapWorker = Comlink.wrap<DBServerClassType>(worker);
-  let dbClient = await new WrapWorker([
-    {
-      name: 'test',
-    },
-  ]);
+  let dbClient = await new WrapWorker([new MemberInfosModel()]);
 
   return {
     dbClient,

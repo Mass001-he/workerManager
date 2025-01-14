@@ -4,31 +4,7 @@ export enum AllowedSqlType {
   BOOLEAN = 'BOOLEAN', // 布尔值
 }
 
-function processOptions<T extends ColumnType>(
-  ins: T,
-  baseIns: ColumnType<any>,
-  newAttrs?: Partial<ColumnType<any>>,
-) {
-  ins._required = baseIns._required;
-  ins._unique = baseIns._unique;
-  ins._primary = baseIns._primary;
-  ins._autoIncrement = baseIns._autoIncrement;
-  ins._default = baseIns._default;
-  ins._max = baseIns._max;
-  ins._min = baseIns._min;
-  ins._enums = baseIns._enums;
-  if (!newAttrs) {
-    return;
-  }
-  Object.keys(newAttrs).forEach((key) => {
-    //@ts-ignore
-    ins[key] = newAttrs[key];
-  });
-}
-
 export abstract class ColumnType<Type = any> {
-  static processOptions = processOptions;
-
   _sqlType!: AllowedSqlType;
   _type!: Type;
 

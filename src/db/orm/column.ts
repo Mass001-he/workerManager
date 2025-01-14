@@ -214,13 +214,22 @@ export class Table<
   N extends string = any,
   T extends Record<string, ColumnType> = any,
 > {
+  static kernelColumns = {
+    _id: integer().primary().autoIncrement(),
+    _createAt: integer(),
+    _updateAt: integer(),
+    _deletedAt: integer(),
+  };
   constructor(
     public name: N,
     public columns: T,
   ) {}
 
   genCreateSql() {
-    const columns = Object.entries(this.columns).map(([name, column]) => {
+    const columns = Object.entries({
+      ...Table.kernelColumns,
+      ...this.columns,
+    }).map(([name, column]) => {
       return `${name} ${column.genCreateSql().join(' ')}`;
     });
     return `CREATE TABLE IF NOT EXISTS ${this.name} (${columns.join(', ')});`;

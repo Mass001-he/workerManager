@@ -1,5 +1,4 @@
 import { createWorker } from './db/dbClient';
-import { integer, table, text } from './db/orm/column';
 import type { Service } from './vertex/node/service';
 
 declare global {

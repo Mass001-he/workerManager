@@ -40,10 +40,6 @@ export abstract class ColumnType<Type = any> {
   _primary: boolean = false;
   /** 是否自增 */
   _autoIncrement: boolean = false;
-  _default: Type | undefined = undefined;
-  _max: number | undefined = undefined;
-  _min: number | undefined = undefined;
-  _enums: Type[] | undefined = undefined;
 
   autoIncrement() {
     this._autoIncrement = true;
@@ -90,9 +86,6 @@ export abstract class ColumnType<Type = any> {
 
   verify(value: any): string[] {
     const messages = [];
-    if (this._enums && !this._enums.includes(value)) {
-      messages.push(`value must be one of ${this._enums.join(', ')}`);
-    }
     if (this._required) {
       if (value === undefined || value === null) {
         messages.push('value is required');
@@ -125,6 +118,10 @@ class ColumnOptional<Column extends ColumnType> extends ColumnType<
 
 class ColumnText extends ColumnType<string> {
   _sqlType = AllowedSqlType.TEXT;
+  _default: string | undefined = undefined;
+  _max: number | undefined = undefined;
+  _min: number | undefined = undefined;
+  _enums: string[] | undefined = undefined;
 
   enum(enums: string[]) {
     this._enums = enums;
@@ -157,12 +154,19 @@ class ColumnText extends ColumnType<string> {
     if (this._min && value.length < this._min) {
       messages.push(`value length must greater than ${this._min}`);
     }
+    if (this._enums && !this._enums.includes(value)) {
+      messages.push(`value must be one of ${this._enums.join(', ')}`);
+    }
     return messages;
   }
 }
 
 class ColumnInteger extends ColumnType<number> {
   _sqlType = AllowedSqlType.INTEGER;
+  _default: number | undefined = undefined;
+  _max: number | undefined = undefined;
+  _min: number | undefined = undefined;
+  _enums: number[] | undefined = undefined;
 
   enum(enums: number[]) {
     this._enums = enums;
@@ -194,6 +198,9 @@ class ColumnInteger extends ColumnType<number> {
     }
     if (this._min && value < this._min) {
       messages.push(`value must greater than ${this._min}`);
+    }
+    if (this._enums && !this._enums.includes(value)) {
+      messages.push(`value must be one of ${this._enums.join(', ')}`);
     }
     return messages;
   }

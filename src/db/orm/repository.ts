@@ -1,6 +1,6 @@
 import { Logger } from '../../utils';
 import type { DBServer } from '../dbServer';
-import type { BaseColumnDescriptor, Table, TableRow } from './column';
+import type { ColumnType, Table, ColumnInfer } from './column';
 
 export class Repository<T extends Table> {
   static insMap = new Map<string, Repository<Table>>();
@@ -20,7 +20,7 @@ export class Repository<T extends Table> {
   }
 
   get columns() {
-    return this.table.columns as Record<string, BaseColumnDescriptor>;
+    return this.table.columns as Record<string, ColumnType>;
   }
 
   private constructor(
@@ -32,7 +32,7 @@ export class Repository<T extends Table> {
   }
 
   private validateColumns(
-    columns: TableRow<T['columns']> | TableRow<T['columns']>[],
+    columns: ColumnInfer<T['columns']> | ColumnInfer<T['columns']>[],
   ) {
     const _columns = Array.isArray(columns) ? [...columns] : [columns];
 
@@ -50,11 +50,11 @@ export class Repository<T extends Table> {
     });
   }
 
-  insert(item: TableRow<T['columns']>) {
+  insert(item: ColumnInfer<T['columns']>) {
     return this.insertMany([item]);
   }
 
-  insertMany(items: TableRow<T['columns']>[]) {
+  insertMany(items: ColumnInfer<T['columns']>[]) {
     this.validateColumns(items);
 
     const columns = Object.keys(items[0]).join(', ');

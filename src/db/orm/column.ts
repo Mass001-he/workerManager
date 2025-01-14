@@ -1,12 +1,49 @@
-export abstract class BaseColumnDescriptor {
+export enum AllowedSqlType {
+  TEXT = 'TEXT',
+  INTEGER = 'INTEGER',
+  BOOLEAN = 'BOOLEAN', // 布尔值
+}
+
+function processOptions<T extends ColumnType>(
+  ins: T,
+  baseIns: ColumnType<any>,
+  newAttrs?: Partial<ColumnType<any>>,
+) {
+  ins._required = baseIns._required;
+  ins._unique = baseIns._unique;
+  ins._primary = baseIns._primary;
+  ins._autoIncrement = baseIns._autoIncrement;
+  ins._default = baseIns._default;
+  ins._max = baseIns._max;
+  ins._min = baseIns._min;
+  ins._enums = baseIns._enums;
+  if (!newAttrs) {
+    return;
+  }
+  Object.keys(newAttrs).forEach((key) => {
+    //@ts-ignore
+    ins[key] = newAttrs[key];
+  });
+}
+
+export abstract class ColumnType<Type = any> {
+  static processOptions = processOptions;
+
+  _sqlType!: AllowedSqlType;
+  _type!: Type;
+
   /** 是否必填 */
-  _required: boolean = false;
+  _required: boolean = true;
   /** 是否唯一 */
   _unique: boolean = false;
   /** 是否主键 */
   _primary: boolean = false;
   /** 是否自增 */
   _autoIncrement: boolean = false;
+  _default: Type | undefined = undefined;
+  _max: number | undefined = undefined;
+  _min: number | undefined = undefined;
+  _enums: Type[] | undefined = undefined;
 
   autoIncrement() {
     this._autoIncrement = true;
@@ -18,15 +55,15 @@ export abstract class BaseColumnDescriptor {
     return this;
   }
 
-  required() {
-    this._required = true;
-    return this;
-  }
-
   unique() {
     this._unique = true;
     return this;
   }
+
+  optional() {
+    return new ColumnOptional(this);
+  }
+
   /**
    * 仅创建时的字段，校验合法性不由sql语句实现，而是由{@link verify}方法实现
    * @returns
@@ -48,35 +85,52 @@ export abstract class BaseColumnDescriptor {
     return sql;
   }
 
-  abstract verify(value: any): true | string[];
+  verify(value: any): string[] {
+    const messages = [];
+    if (this._enums && !this._enums.includes(value)) {
+      messages.push(`value must be one of ${this._enums.join(', ')}`);
+    }
+    if (this._required) {
+      if (value === undefined || value === null) {
+        messages.push('value is required');
+      }
+    }
+    return messages;
+  }
 }
 
-abstract class EnumColumnDescriptor<T> {
-  _enum?: T[] = [];
-  enum(value: T[]) {
-    this._enum = value;
+class ColumnOptional<Column extends ColumnType> extends ColumnType<
+  Column['_type'] | undefined
+> {
+  constructor(protected _column: Column) {
+    super();
+    this._column._required = false;
+  }
+
+  unwrap() {
+    return this._column;
+  }
+
+  verify(value: any) {
+    return this._column.verify(value);
+  }
+}
+
+class ColumnText extends ColumnType<string> {
+  _sqlType = AllowedSqlType.TEXT;
+
+  enum(enums: string[]) {
+    this._enums = enums;
     return this;
   }
-}
 
-class TextColumnDescriptor
-  extends BaseColumnDescriptor
-  implements EnumColumnDescriptor<string>
-{
-  _default?: string;
-  _max?: number;
-  _enum?: string[];
-  constructor() {
-    super();
-  }
-
-  max(max: number): this {
+  max(max: number) {
     this._max = max;
     return this;
   }
 
-  enum(value: string[]): this {
-    this._enum = value;
+  min(min: number) {
+    this._min = min;
     return this;
   }
 
@@ -85,44 +139,37 @@ class TextColumnDescriptor
     return this;
   }
 
-  override genCreateSql() {
-    const sql = super.genCreateSql();
-    sql.unshift('TEXT');
-
-    if (this._default) {
-      sql.push(`DEFAULT ${this._default}`);
-    }
-    return sql;
-  }
-
   verify(value: any) {
-    const message: string[] = [];
+    const messages = [...super.verify(value)];
     if (typeof value !== 'string') {
-      message.push('value is not a string');
+      messages.push('value must be string');
     }
     if (this._max && value.length > this._max) {
-      message.push(`value length greater than max: ${this._max}`);
+      messages.push(`value length must less than ${this._max}`);
     }
-    if (this._enum && !this._enum.includes(value)) {
-      message.push('value not in enum');
+    if (this._min && value.length < this._min) {
+      messages.push(`value length must greater than ${this._min}`);
     }
-    if (message.length) {
-      return message;
-    }
-    return true;
+    return messages;
   }
 }
 
-class IntegerColumnDescriptor
-  extends BaseColumnDescriptor
-  implements EnumColumnDescriptor<number>
-{
-  _default?: number;
-  _min?: number;
-  _max?: number;
-  _enum?: number[];
-  constructor() {
-    super();
+class ColumnInteger extends ColumnType<number> {
+  _sqlType = AllowedSqlType.INTEGER;
+
+  enum(enums: number[]) {
+    this._enums = enums;
+    return this;
+  }
+
+  max(max: number) {
+    this._max = max;
+    return this;
+  }
+
+  min(min: number) {
+    this._min = min;
+    return this;
   }
 
   default(value: number) {
@@ -130,129 +177,42 @@ class IntegerColumnDescriptor
     return this;
   }
 
-  min(value: number) {
-    this._min = value;
-    return this;
-  }
-
-  max(value: number) {
-    this._max = value;
-    return this;
-  }
-
-  enum(value: number[]) {
-    this._enum = value;
-    return this;
-  }
-
-  override genCreateSql() {
-    const sql = super.genCreateSql();
-    sql.unshift('INTEGER');
-
-    if (this._default) {
-      sql.push(`DEFAULT ${this._default}`);
-    }
-    return sql;
-  }
-
   verify(value: any) {
-    const message: string[] = [];
-    if (this._min && value < this._min) {
-      message.push('value less than min');
+    const messages = [...super.verify(value)];
+    if (typeof value !== 'number') {
+      messages.push('value must be number');
     }
     if (this._max && value > this._max) {
-      message.push(`value greater than ${this._max}`);
+      messages.push(`value must less than ${this._max}`);
     }
-    if (this._enum && !this._enum.includes(value)) {
-      message.push('value not in enum');
+    if (this._min && value < this._min) {
+      messages.push(`value must greater than ${this._min}`);
     }
-    if (message.length) {
-      return message;
-    }
-    return true;
+    return messages;
   }
 }
 
-class TimestampColumnDescriptor extends BaseColumnDescriptor {
-  _default?: number;
-  constructor() {
-    super();
-  }
-
-  defaultNow() {
-    this._default = Date.now();
-    return this;
-  }
-
-  override genCreateSql() {
-    const sql = super.genCreateSql();
-    sql.unshift('TIMESTAMP');
-
-    return sql;
-  }
-
-  verify(value: any) {
-    const message: string[] = [];
-    if (typeof value !== 'number') {
-      message.push('value is not a number');
-    }
-    if (message.length) {
-      return message;
-    }
-    return true;
-  }
-}
-
-class BooleanColumnDescriptor extends BaseColumnDescriptor {
-  _default?: boolean;
-  constructor() {
-    super();
-  }
+class ColumnBoolean extends ColumnType<boolean> {
+  _sqlType = AllowedSqlType.BOOLEAN;
+  _default: boolean | undefined = undefined;
 
   default(value: boolean) {
     this._default = value;
     return this;
   }
 
-  override genCreateSql() {
-    const sql = super.genCreateSql();
-    sql.unshift('BOOLEAN');
-
-    if (this._default) {
-      sql.push(`DEFAULT ${this._default}`);
-    }
-    return sql;
-  }
-
   verify(value: any) {
-    const message: string[] = [];
+    const messages = [...super.verify(value)];
     if (typeof value !== 'boolean') {
-      message.push('value is not a boolean');
+      messages.push('value must be boolean');
     }
-    if (message.length) {
-      return message;
-    }
-    return true;
+    return messages;
   }
 }
 
-type ColumnType<T> = T extends TextColumnDescriptor
-  ? string
-  : T extends IntegerColumnDescriptor
-    ? number
-    : T extends TimestampColumnDescriptor
-      ? number
-      : T extends BooleanColumnDescriptor
-        ? boolean
-        : any;
-
-export type TableRow<T extends Record<string, BaseColumnDescriptor>> = {
-  [K in keyof T]: ColumnType<T[K]>;
-};
-
 export class Table<
   N extends string = any,
-  T extends Record<string, BaseColumnDescriptor> = any,
+  T extends Record<string, ColumnType> = any,
 > {
   constructor(
     public name: N,
@@ -267,25 +227,37 @@ export class Table<
   }
 }
 
+export function table<N extends string, T extends Record<string, ColumnType>>(
+  name: N,
+  columns: T,
+) {
+  return new Table<N, T>(name, columns);
+}
+
 export function text() {
-  return new TextColumnDescriptor();
+  return new ColumnText();
 }
 
 export function integer() {
-  return new IntegerColumnDescriptor();
-}
-
-export function timestamp() {
-  return new TimestampColumnDescriptor();
+  return new ColumnInteger();
 }
 
 export function boolean() {
-  return new BooleanColumnDescriptor();
+  return new ColumnBoolean();
 }
 
-export function table<
-  N extends string,
-  T extends Record<string, BaseColumnDescriptor>,
->(name: N, columns: T) {
-  return new Table<N, T>(name, columns);
-}
+type Prettier<T> = {
+  [K in keyof T]: T[K];
+};
+
+export type ColumnInfer<T extends Record<string, ColumnType>> = Prettier<
+  {
+    [K in keyof T as T[K] extends ColumnOptional<ColumnType>
+      ? never
+      : K]: T[K]['_type'];
+  } & {
+    [K in keyof T as T[K] extends ColumnOptional<ColumnType>
+      ? K
+      : never]?: T[K]['_type'];
+  }
+>;

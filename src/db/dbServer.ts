@@ -86,7 +86,7 @@ export class DBServer<T extends Table[]> {
 }
 
 const userTable = table('user', {
-  name: text(),
+  name: text().optional(),
   age: integer().max(100),
 });
 

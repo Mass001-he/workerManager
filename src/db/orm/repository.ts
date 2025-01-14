@@ -51,7 +51,7 @@ export class Repository<T extends Table> {
   }
 
   insert(item: TableRow<T['columns']>) {
-    this.insertMany([item]);
+    return this.insertMany([item]);
   }
 
   insertMany(items: TableRow<T['columns']>[]) {
@@ -74,7 +74,7 @@ export class Repository<T extends Table> {
 
     const sql = `INSERT INTO ${this.table.name} (${columns}) VALUES ${valuesList};`;
     // 执行插入操作
-    this.server.exec(sql);
+    return this.server.exec(sql);
   }
 
   query() {}

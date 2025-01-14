@@ -70,6 +70,9 @@ export abstract class ColumnType<Type = any> {
    */
   genCreateSql(): string[] {
     let sql: string[] = [];
+    if (this._autoIncrement && !this._primary) {
+      throw new Error('AUTOINCREMENT can only be applied to a primary key');
+    }
     if (this._primary) {
       sql.push('PRIMARY KEY');
     }
@@ -97,6 +100,10 @@ export abstract class ColumnType<Type = any> {
     }
     return messages;
   }
+}
+
+export class ColumnDate extends ColumnType<Date> {
+  now() {}
 }
 
 class ColumnOptional<Column extends ColumnType> extends ColumnType<
@@ -210,20 +217,34 @@ class ColumnBoolean extends ColumnType<boolean> {
   }
 }
 
+type TableColumns<T extends Record<string, ColumnType>> = T & {
+  _id: ColumnInteger;
+  _createAt: ColumnDate;
+  _updateAt: ColumnDate;
+  _deleteAt: ColumnDate;
+};
+
 export class Table<
   N extends string = any,
   T extends Record<string, ColumnType> = any,
 > {
   static kernelColumns = {
     _id: integer().primary().autoIncrement(),
-    _createAt: integer(),
-    _updateAt: integer(),
-    _deletedAt: integer(),
+    _createAt: date().now(),
+    _updateAt: date().now(),
+    _deleteAt: date().now(),
   };
+
+  public columns: TableColumns<T>;
   constructor(
     public name: N,
-    public columns: T,
-  ) {}
+    columns: T,
+  ) {
+    this.columns = {
+      ...Table.kernelColumns,
+      ...columns,
+    };
+  }
 
   genCreateSql() {
     const columns = Object.entries({
@@ -253,6 +274,10 @@ export function integer() {
 
 export function boolean() {
   return new ColumnBoolean();
+}
+
+export function date() {
+  return new ColumnDate();
 }
 
 type Prettier<T> = {

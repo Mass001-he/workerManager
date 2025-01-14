@@ -76,7 +76,7 @@ export class DBServer<T extends Table[]> {
   }
 
   exec(sql: string) {
-    this.logger.info('Executing SQL:', sql).print();
+    this.logger.info('SQL:', sql).print();
     const result = this.getDBIns().exec(sql, {
       rowMode: 'object',
     });

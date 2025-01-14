@@ -107,7 +107,6 @@ const App = () => {
           }}
           query={async (sql) => {
             const res = await worker?.request('exec', sql);
-            console.log(res);
             return res?.data;
           }}
         />

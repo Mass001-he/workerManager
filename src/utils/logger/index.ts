@@ -12,10 +12,10 @@ function rendererTransformer(data: LoggerData) {
     `%c${data.date}`,
     'color: rgb(104,255,104);background: rgb(29,63,42);padding: 0 4px;border-radius: 2px;',
   ];
-
+  const remainder = MaxScopeLength - data.scope.length;
   const logArr = [
     ...date,
-    `<${data.scope}>${' '.repeat(MaxScopeLength - data.scope.length)}:`,
+    `<${data.scope}>${' '.repeat(remainder > 0 ? remainder : 0)}:`,
     ...data.args,
   ];
   if (data.scope.length === 0) {
@@ -45,9 +45,9 @@ export class Logger {
     if (typeof scope !== 'string') {
       throw new Error('Scope must be a string');
     }
-    if (scope.length > MaxScopeLength) {
-      throw new Error('Scope length must be less than 15');
-    }
+    // if (scope.length > MaxScopeLength) {
+    //   throw new Error('Scope length must be less than 15');
+    // }
     if (Logger.loggerInstanceMap.has(scope)) {
       return Logger.loggerInstanceMap.get(scope) as Logger;
     }

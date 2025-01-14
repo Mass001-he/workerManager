@@ -26,7 +26,6 @@ export const getAllTables = async (query: (sql: string) => Promise<any[]>) => {
     `SELECT name FROM sqlite_master WHERE type='table';`,
   );
   //查询表的字段
-  console.log('fix', tables);
   await Promise.all(
     tables.map(async (table) => {
       table.columns = await query(`PRAGMA table_info(${table.name})`);

@@ -27,7 +27,7 @@ export class Repository<T extends Table> {
     private table: T,
     private server: DBServer<[T]>,
   ) {
-    this.logger = Logger.scope(`Repository[${table.name}]`);
+    this.logger = Logger.scope(`Repository:${table.name}`);
     this.logger.info('created').print();
   }
 

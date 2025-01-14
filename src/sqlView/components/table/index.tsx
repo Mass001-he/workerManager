@@ -64,7 +64,6 @@ export const Table: FC<TableProps> = (props) => {
     setIsEnd(isLastPage)
     setTotal(total)
     callback?.()
-    console.log(res)
   }
 
   useEffect(() => {

@@ -2,6 +2,7 @@ export enum AllowedSqlType {
   TEXT = 'TEXT',
   INTEGER = 'INTEGER',
   BOOLEAN = 'BOOLEAN', // 布尔值
+  DATETIME = 'DATETIME',
 }
 
 function processOptions<T extends ColumnType>(
@@ -93,10 +94,6 @@ export abstract class ColumnType<Type = any> {
     }
     return messages;
   }
-}
-
-export class ColumnDate extends ColumnType<Date> {
-  now() {}
 }
 
 class ColumnOptional<Column extends ColumnType> extends ColumnType<
@@ -224,13 +221,30 @@ class ColumnBoolean extends ColumnType<boolean> {
   }
 }
 
-type TableColumns<T extends Record<string, ColumnType>> = T & {
+export class ColumnDate extends ColumnType<Date> {
+  _now: boolean = false;
+  _sqlType = AllowedSqlType.DATETIME;
+  now() {
+    this._now = true;
+    return this;
+  }
+  verify(value: any): string[] {
+    const messages = [...super.verify(value)];
+    if (!(value instanceof Date)) {
+      messages.push('value must be Date');
+    }
+    return messages;
+  }
+}
+
+type KernelColumns = {
   _id: ColumnInteger;
   _createAt: ColumnDate;
   _updateAt: ColumnDate;
   _deleteAt: ColumnDate;
 };
 
+type TableColumns<T extends Record<string, ColumnType>> = T & KernelColumns;
 export class Table<
   N extends string = any,
   T extends Record<string, ColumnType> = any,

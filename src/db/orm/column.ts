@@ -161,7 +161,7 @@ class IntegerColumnDescriptor
       message.push('value less than min');
     }
     if (this._max && value > this._max) {
-      message.push('value greater than max');
+      message.push(`value greater than ${this._max}`);
     }
     if (this._enum && !this._enum.includes(value)) {
       message.push('value not in enum');

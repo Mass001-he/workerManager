@@ -87,7 +87,7 @@ export class DBServer<T extends Table[]> {
 
 const userTable = table('user', {
   name: text(),
-  age: integer(),
+  age: integer().max(100),
 });
 
 const postTable = table('post', {
@@ -98,9 +98,22 @@ const postTable = table('post', {
 const dbServer = new DBServer([userTable, postTable]);
 
 //test
-dbServer.getRepository('user').insert({
-  name: 'test',
-  age: 18,
-});
+setTimeout(() => {
+  dbServer.getRepository('user').insert({
+    name: 'test',
+    age: 18,
+  });
+
+  dbServer.getRepository('user').insertMany([
+    {
+      name: 'zhangsan',
+      age: 5,
+    },
+    {
+      name: 'wangwu',
+      age: 6,
+    },
+  ]);
+}, 2000);
 
 Comlink.expose(dbServer);

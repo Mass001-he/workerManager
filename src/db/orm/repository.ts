@@ -27,15 +27,55 @@ export class Repository<T extends Table> {
     private table: T,
     private server: DBServer<[T]>,
   ) {
-    this.logger = Logger.scope(`Repository:${table.name}`);
+    this.logger = Logger.scope(`Repo_${table.name}`);
     this.logger.info('created').print();
   }
 
-  private validateColumns(columns: TableRow<T['columns']>) {}
+  private validateColumns(
+    columns: TableRow<T['columns']> | TableRow<T['columns']>[],
+  ) {
+    const _columns = Array.isArray(columns) ? [...columns] : [columns];
 
-  insert(item: TableRow<T['columns']>) {}
+    _columns.forEach((column) => {
+      Object.entries(column).forEach(([key, value]) => {
+        const res = this.table.columns[key].verify(value);
 
-  insertMany(items: TableRow<T['columns']>[]) {}
+        if (Array.isArray(res)) {
+          // 报错
+          throw new Error(
+            `Validation failed for column ${key}: ${res.join(', ')}, current value is ${value}`,
+          );
+        }
+      });
+    });
+  }
+
+  insert(item: TableRow<T['columns']>) {
+    this.insertMany([item]);
+  }
+
+  insertMany(items: TableRow<T['columns']>[]) {
+    this.validateColumns(items);
+
+    const columns = Object.keys(items[0]).join(', ');
+
+    // 构建插入 SQL 语句
+    const valuesList = items
+      .map((item) => {
+        const values = Object.values(item).map((value) => {
+          if (typeof value === 'string') {
+            return `'${value.replace(/'/g, "''")}'`; // 处理字符串中的单引号
+          }
+          return value;
+        });
+        return `(${values.join(', ')})`;
+      })
+      .join(', ');
+
+    const sql = `INSERT INTO ${this.table.name} (${columns}) VALUES ${valuesList};`;
+    // 执行插入操作
+    this.server.exec(sql);
+  }
 
   query() {}
 

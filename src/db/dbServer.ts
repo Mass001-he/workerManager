@@ -100,20 +100,37 @@ const dbServer = new DBServer([userTable, postTable]);
 //test
 setTimeout(() => {
   dbServer.getRepository('user').insert({
-    name: 'test',
-    age: 18,
+    name: 'test' + Math.floor(Math.random() * 100),
+    age: Math.floor(Math.random() * 100),
   });
-
   dbServer.getRepository('user').insertMany([
     {
-      name: 'zhangsan',
-      age: 5,
+      name: 'zhangsan' + Math.floor(Math.random() * 100),
+      age: Math.floor(Math.random() * 100),
     },
     {
-      name: 'wangwu',
-      age: 6,
+      name: 'wangwu' + Math.floor(Math.random() * 100),
+      age: Math.floor(Math.random() * 100),
     },
   ]);
+  // console.time('query');
+  // const res = dbServer.getRepository('user').queryMany({
+  //   name: {
+  //     like: 'zhang66',
+  //   },
+  //   // age: {
+  //   //   gt: 10,
+  //   // },
+  // });
+  // console.log('queryMany result =====> ', res);
+  // console.timeEnd('query');
+  // const queryOne = dbServer.getRepository('user').query({
+  //   name: 'test',
+  // });
+  // console.log('queryOne result =====> ', queryOne);
+  const removeResult = dbServer.getRepository('user').remove({});
+  const q = dbServer.getRepository('user').query({});
+  console.log('removeResult result =====> ', removeResult);
 }, 2000);
 
 Comlink.expose(dbServer);

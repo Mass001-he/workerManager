@@ -18,7 +18,7 @@ export interface QueryOptions<T = any> {
 }
 
 type ColumnQuery<T extends Record<string, ColumnType>> = {
-  [K in keyof T]?: QueryOptions | T[K]['_type'];
+  [K in keyof T]?: QueryOptions | T[K]['__type'];
 };
 
 export class Repository<T extends Table> {

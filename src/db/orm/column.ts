@@ -6,8 +6,8 @@ export enum AllowedSqlType {
 }
 
 export abstract class ColumnType<Type = any> {
-  _sqlType!: AllowedSqlType;
-  _type!: Type;
+  __sqlType!: AllowedSqlType;
+  __type!: Type;
 
   /** 是否必填 */
   _required: boolean = true;
@@ -17,14 +17,24 @@ export abstract class ColumnType<Type = any> {
   _primary: boolean = false;
   /** 是否自增 */
   _autoIncrement: boolean = false;
+  _default: Type | undefined = undefined;
+  _max: number | undefined = undefined;
+  _min: number | undefined = undefined;
+  _enums: Type[] | undefined = undefined;
+  _index: string | undefined = undefined;
 
-  autoIncrement() {
-    this._autoIncrement = true;
-    return this;
-  }
+  // autoIncrement() {
+  //   this._autoIncrement = true;
+  //   return this;
+  // }
 
-  primary() {
-    this._primary = true;
+  // primary() {
+  //   this._primary = true;
+  //   return this;
+  // }
+
+  index(name: string) {
+    this._index = name;
     return this;
   }
 
@@ -58,6 +68,9 @@ export abstract class ColumnType<Type = any> {
     if (this._autoIncrement) {
       sql.push('AUTOINCREMENT');
     }
+    if (this._default !== undefined) {
+      sql.push(`DEFAULT ${this._default}`);
+    }
     return sql;
   }
 
@@ -68,12 +81,15 @@ export abstract class ColumnType<Type = any> {
         messages.push('value is required');
       }
     }
+    if (this._enums && !this._enums.includes(value)) {
+      messages.push(`value must be one of ${this._enums.join(', ')}`);
+    }
     return messages;
   }
 }
 
 class ColumnOptional<Column extends ColumnType> extends ColumnType<
-  Column['_type'] | undefined
+  Column['__type'] | undefined
 > {
   constructor(protected _column: Column) {
     super();
@@ -90,11 +106,7 @@ class ColumnOptional<Column extends ColumnType> extends ColumnType<
 }
 
 class ColumnText extends ColumnType<string> {
-  _sqlType = AllowedSqlType.TEXT;
-  _default: string | undefined = undefined;
-  _max: number | undefined = undefined;
-  _min: number | undefined = undefined;
-  _enums: string[] | undefined = undefined;
+  __sqlType = AllowedSqlType.TEXT;
 
   enum(enums: string[]) {
     this._enums = enums;
@@ -127,19 +139,12 @@ class ColumnText extends ColumnType<string> {
     if (this._min && value.length < this._min) {
       messages.push(`value length must greater than ${this._min}`);
     }
-    if (this._enums && !this._enums.includes(value)) {
-      messages.push(`value must be one of ${this._enums.join(', ')}`);
-    }
     return messages;
   }
 }
 
 class ColumnInteger extends ColumnType<number> {
-  _sqlType = AllowedSqlType.INTEGER;
-  _default: number | undefined = undefined;
-  _max: number | undefined = undefined;
-  _min: number | undefined = undefined;
-  _enums: number[] | undefined = undefined;
+  __sqlType = AllowedSqlType.INTEGER;
 
   enum(enums: number[]) {
     this._enums = enums;
@@ -172,15 +177,12 @@ class ColumnInteger extends ColumnType<number> {
     if (this._min && value < this._min) {
       messages.push(`value must greater than ${this._min}`);
     }
-    if (this._enums && !this._enums.includes(value)) {
-      messages.push(`value must be one of ${this._enums.join(', ')}`);
-    }
     return messages;
   }
 }
 
 class ColumnBoolean extends ColumnType<boolean> {
-  _sqlType = AllowedSqlType.BOOLEAN;
+  __sqlType = AllowedSqlType.BOOLEAN;
   _default: boolean | undefined = undefined;
 
   default(value: boolean) {
@@ -199,7 +201,7 @@ class ColumnBoolean extends ColumnType<boolean> {
 
 export class ColumnDate extends ColumnType<Date> {
   _now: boolean = false;
-  _sqlType = AllowedSqlType.DATETIME;
+  __sqlType = AllowedSqlType.DATETIME;
   now() {
     this._now = true;
     return this;
@@ -220,13 +222,21 @@ type KernelColumns = {
   _deleteAt: ColumnDate;
 };
 
+function kernelColumnPrimaryId() {
+  const column = new ColumnInteger();
+  column._autoIncrement = true;
+  column._primary = true;
+  column._required = true;
+  return column;
+}
+
 type TableColumns<T extends Record<string, ColumnType>> = T & KernelColumns;
 export class Table<
   N extends string = any,
   T extends Record<string, ColumnType> = any,
 > {
   static kernelColumns = {
-    _id: integer().primary().autoIncrement(),
+    _id: kernelColumnPrimaryId(),
     _createAt: date().now(),
     _updateAt: date().now(),
     _deleteAt: date().now(),
@@ -248,7 +258,14 @@ export class Table<
       ...Table.kernelColumns,
       ...this.columns,
     }).map(([name, column]) => {
-      return `${name} ${column.genCreateSql().join(' ')}`;
+      let columnDesc = column;
+      //@ts-expect-error  ignore wrap
+      if (column['_column']) {
+        //@ts-expect-error
+        columnDesc = column.unwrap();
+      }
+
+      const sql = columnDesc.genCreateSql();
     });
     return `CREATE TABLE IF NOT EXISTS ${this.name} (${columns.join(', ')});`;
   }
@@ -285,10 +302,10 @@ export type ColumnInfer<T extends Record<string, ColumnType>> = Prettier<
   {
     [K in keyof T as T[K] extends ColumnOptional<ColumnType>
       ? never
-      : K]: T[K]['_type'];
+      : K]: T[K]['__type'];
   } & {
     [K in keyof T as T[K] extends ColumnOptional<ColumnType>
       ? K
-      : never]?: T[K]['_type'];
+      : never]?: T[K]['__type'];
   }
 >;

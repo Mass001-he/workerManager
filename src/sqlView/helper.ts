@@ -126,15 +126,7 @@ export const deleteTableData = async (
   tableName: string,
   row: any,
 ) => {
-  if (row.id) {
-    return await query(`DELETE FROM ${tableName} WHERE id = ${row.id};`);
-  } else {
-    return await query(
-      `DELETE FROM ${tableName} WHERE ${Object.keys(row)
-        .map((key) => `${key} = ${row[key]}`)
-        .join(' AND ')}`,
-    );
-  }
+  return await query(`DELETE FROM ${tableName} WHERE rowid = ${row.rowid};`);
 };
 
 export const setCache = (key: string, value: any) => {

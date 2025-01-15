@@ -36,11 +36,11 @@ setTimeout(() => {
   //   });
   // }
   // userRepo.insertMany(users);
-  userRepo.remove({
-    name: {
-      equal: 'name0',
-    },
-  });
+  // userRepo.remove({
+  //   name: {
+  //     equal: 'name0',
+  //   },
+  // });
 }, 1000);
 
 Comlink.expose(orm);

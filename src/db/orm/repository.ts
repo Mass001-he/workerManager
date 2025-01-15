@@ -56,7 +56,7 @@ export class Repository<T extends Table> {
     this.logger.info('created').print();
   }
 
-  private validateKernelCols(data: ColumnInfer<T['columns']>) {
+  private validateKernelCols(data: Partial<ColumnInfer<T['columns']>>) {
     const keys = Object.keys(data);
     for (const key of keys) {
       if (kernelColumnsKeys.includes(key as KernelColumnsKeys)) {
@@ -66,7 +66,9 @@ export class Repository<T extends Table> {
   }
 
   private validateColumns(
-    columns: ColumnInfer<T['columns']> | ColumnInfer<T['columns']>[],
+    columns:
+      | Partial<ColumnInfer<T['columns']>>
+      | Partial<ColumnInfer<T['columns']>>[],
   ) {
     const _columns = Array.isArray(columns) ? [...columns] : [columns];
 
@@ -140,12 +142,48 @@ export class Repository<T extends Table> {
     return result as unknown as ColumnInfer<T['columns']>[];
   }
 
-  update() {}
+  private buildSetClauses(newData: Partial<ColumnInfer<T['columns']>>): string {
+    // 构建 SET 子句
+    const setClauses = Object.entries(newData)
+      .map(([key, value]) => {
+        if (typeof value === 'string') {
+          return `${key} = '${value.replace(/'/g, "''")}'`; // 处理字符串中的单引号
+        }
+        return `${key} = ${value}`;
+      })
+      .join(', ');
+
+    return setClauses;
+  }
+
+  update(
+    conditions: ColumnQuery<T['columns']>,
+    newData: Partial<ColumnInfer<T['columns']>>,
+  ) {
+    this.validateKernelCols(newData);
+    const res: any[] = this._query(conditions, 1);
+    if (res.length === 0) {
+      this.logger.info('No record found').print();
+      return false;
+    }
+
+    this.validateColumns(newData);
+
+    // 构建 SET 子句
+    const setClauses = this.buildSetClauses(newData);
+    // 构建更新 SQL 语句
+    const sql = `UPDATE ${this.table.name} SET ${setClauses} WHERE rowid = ${res[0].rowid}`;
+    // 执行更新操作
+    this.server.exec(sql);
+
+    return true;
+  }
 
   updateMany(
     conditions: ColumnQuery<T['columns']>,
-    newData: Omit<Partial<ColumnInfer<T['columns']>>, KernelColumnsKeys>,
+    newData: Partial<ColumnInfer<T['columns']>>,
   ): boolean {
+    this.validateKernelCols(newData);
     // 验证新数据
     this.validateColumns(newData);
 
@@ -157,14 +195,7 @@ export class Repository<T extends Table> {
       .join(' AND ');
 
     // 构建 SET 子句
-    const setClauses = Object.entries(newData)
-      .map(([key, value]) => {
-        if (typeof value === 'string') {
-          return `${key} = '${value.replace(/'/g, "''")}'`; // 处理字符串中的单引号
-        }
-        return `${key} = ${value}`;
-      })
-      .join(', ');
+    const setClauses = this.buildSetClauses(newData);
 
     // 构建更新 SQL 语句
     const sql = `UPDATE ${this.table.name} SET ${setClauses} WHERE ${whereClauses}`;
@@ -176,7 +207,7 @@ export class Repository<T extends Table> {
   }
 
   remove(conditions: ColumnQuery<T['columns']>) {
-    const res = this._query(conditions, 1);
+    const res: any[] = this._query(conditions, 1);
 
     if (res.length === 0) {
       this.logger.info('No record found').print();

@@ -3,6 +3,7 @@
 使用场景：需要一个执行者来执行任务时。例如：多tab页签,多worker线程,多进程等。
 
 ## 功能描述:
+
 现由多tab下多次链接数据库导致错误而设计，由唯一运行环境创建(现实现在SharedWorker中)`Scheduler`。`Scheduler`负责连同各个组件。
 `council`理事会负责选举制度，`eventQueue`事件队列负责事件的派发，确保任务不会遗漏,`tabManager`负责tab页签的管理。
 `Scheduler`负责调度选举，消息分发，事件派发。
@@ -46,3 +47,5 @@
 
 - [x] 批量处理 事件队列统一派发给leader。
 - [x] server单一化，而不是每个client都会创建一个server。
+- [] 现行策略A->Scheduler->B , B->Scheduler->A,会存在多次序列化，并且如果数据体会有4次耗时的克隆和序列化的操作。
+  - 考虑优化成A->Scheduler->B , B->A->Scheduler,B->A 使用ShardBuffer，减少序列化和克隆的操作以及通信成本

@@ -20,7 +20,21 @@ export class DBServer<T extends Table[]> {
     this.tables = tables;
   }
 
+  private checkMetadata() {
+    //查询是否存在metadata表
+    const sql = `SELECT name FROM sqlite_master WHERE type='table' AND name='metadata';`;
+    const result = this.exec<any[]>(sql);
+    const hasMetadata = result.length > 0;
+    if (!hasMetadata) {
+      this.logger.info('Creating metadata table').print();
+      this.exec(
+        `CREATE TABLE metadata (key TEXT NOT NULL,value TEXT NOT NULL);`,
+      );
+    }
+  }
+
   private migration() {
+    this.checkMetadata();
     this.logger.info('Migration start').print();
     this.logger.info('Loading models:', this.tables).print();
     const sql = this.tables
@@ -84,7 +98,7 @@ export class DBServer<T extends Table[]> {
     }
   }
 
-  exec(sql: string) {
+  exec<R>(sql: string) {
     const result = this.getDBIns().exec(sql, {
       rowMode: 'object',
     });
@@ -94,7 +108,7 @@ export class DBServer<T extends Table[]> {
         result,
       })
       .print();
-    return result;
+    return result as R;
   }
 }
 

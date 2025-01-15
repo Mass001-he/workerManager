@@ -1,6 +1,6 @@
 import { Logger } from '../../utils';
 import type { DBServer } from '../dbServer';
-import type { Table } from './column';
+import type { Table } from './table';
 
 export class ORM<T extends Table[]> {
   private logger = Logger.scope('ORM');

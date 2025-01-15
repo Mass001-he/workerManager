@@ -1,17 +1,13 @@
-import * as Comlink from 'comlink';
-import initSqlite3, {
-  OpfsSAHPoolDatabase,
-  type SAHPoolUtil,
-} from '@sqlite.org/sqlite-wasm';
-import { Logger } from '../utils';
-import { table, type Table } from './orm';
-import { integer, text } from './orm/column';
-import { Repository } from './orm/repository';
+import type { OpfsSAHPoolDatabase, SAHPoolUtil } from "@sqlite.org/sqlite-wasm";
+import type { Table } from "./table";
+import  { Logger } from "../../utils";
+import initSqlite3 from "@sqlite.org/sqlite-wasm";
+import { Repository } from "./repository";
 
-export class DBServer<T extends Table[]> {
+export class SqliteWasmORM<T extends Table[]> {
   public connection: {
     poolUtil: SAHPoolUtil;
-    db: OpfsSAHPoolDatabase;
+    db: OpfsSAHPoolDatabase; 
   } | null = null;
   private logger: Logger = Logger.scope('DBServer');
   public tables: T;
@@ -111,42 +107,3 @@ export class DBServer<T extends Table[]> {
     return result as R;
   }
 }
-
-const userTable = table('user', {
-  name: text().optional(),
-  age: integer().max(100),
-});
-
-const postTable = table(
-  'post',
-  {
-    title: text(),
-    content: text(),
-  },
-  () => {
-    return {
-      unique: ['title'],
-    };
-  },
-);
-
-const dbServer = new DBServer([userTable, postTable]);
-const userRepo = dbServer.getRepository('user');
-//test
-setTimeout(() => {
-  // const users = [];
-  // for (let i = 0; i < 101; i++) {
-  //   users.push({
-  //     name: `name${i}`,
-  //     age: i,
-  //   });
-  // }
-  // userRepo.insertMany(users);
-  userRepo.remove({
-    name: {
-      equal: 'name0',
-    },
-  });
-}, 1000);
-
-Comlink.expose(dbServer);

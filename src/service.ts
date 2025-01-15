@@ -1,4 +1,4 @@
-import { createWorker } from './db/dbClient';
+import { createWorker } from './dbClient';
 import type { Service } from './vertex/node/service';
 
 declare global {

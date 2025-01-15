@@ -1,5 +1,5 @@
 import { Logger } from '../../utils';
-import type { DBServer } from '../dbServer';
+import type { SqliteWasmORM } from '../../dbServer';
 import type { ColumnType } from './column';
 import {
   type Table,
@@ -29,7 +29,7 @@ type ColumnQuery<T extends Record<string, ColumnType>> = {
 
 export class Repository<T extends Table> {
   static insMap = new Map<string, Repository<Table>>();
-  static create<T extends Table>(table: T, server: DBServer<[T]>) {
+  static create<T extends Table>(table: T, server: SqliteWasmORM<[T]>) {
     const key = table.name;
     if (Repository.insMap.has(key)) {
       return Repository.insMap.get(key) as Repository<T>;
@@ -50,7 +50,7 @@ export class Repository<T extends Table> {
 
   private constructor(
     private table: T,
-    private server: DBServer<[T]>,
+    private server: SqliteWasmORM<[T]>,
   ) {
     this.logger = Logger.scope(`Repo_${table.name}`);
     this.logger.info('created').print();

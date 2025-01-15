@@ -1,6 +1,6 @@
 import * as Comlink from 'comlink';
-import type { DBServer } from './dbServer';
-import './orm/column';
+import './db/orm/column';
+import type { SqliteWasmORM } from './db/orm';
 
 export async function createWorker() {
   let worker = new Worker(new URL('./dbServer.ts', import.meta.url), {
@@ -8,7 +8,7 @@ export async function createWorker() {
     type: 'module',
   });
 
-  let rpc = Comlink.wrap<DBServer<any>>(worker);
+  let rpc = Comlink.wrap<SqliteWasmORM<any>>(worker);
 
   return {
     rpc,

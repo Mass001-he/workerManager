@@ -1,5 +1,5 @@
 import { Logger } from '../../utils';
-import type { SqliteWasmORM } from '../../dbServer';
+import type { SqliteWasmORM } from '../orm';
 import type { ColumnType } from './column';
 import {
   type Table,

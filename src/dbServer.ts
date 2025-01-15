@@ -21,7 +21,10 @@ const postTable = table(
   },
 );
 
-const orm = new SqliteWasmORM([userTable, postTable]);
+const orm = new SqliteWasmORM({
+  tables: [userTable, postTable],
+  version: 1,
+});
 const userRepo = orm.getRepository('user');
 //test
 setTimeout(() => {

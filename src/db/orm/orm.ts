@@ -1,45 +1,43 @@
-import type { OpfsSAHPoolDatabase, SAHPoolUtil } from "@sqlite.org/sqlite-wasm";
-import type { Table } from "./table";
-import  { Logger } from "../../utils";
-import initSqlite3 from "@sqlite.org/sqlite-wasm";
-import { Repository } from "./repository";
+import type { OpfsSAHPoolDatabase, SAHPoolUtil } from '@sqlite.org/sqlite-wasm';
+import type { Table } from './table';
+import { Logger } from '../../utils';
+import { Repository } from './repository';
+import { Migration } from './migration';
+import initSqlite3 from '@sqlite.org/sqlite-wasm';
+
+export interface SqliteWasmORMOptions<T extends Table[]> {
+  tables: T;
+  version: number;
+}
 
 export class SqliteWasmORM<T extends Table[]> {
   public connection: {
+    name: string;
     poolUtil: SAHPoolUtil;
-    db: OpfsSAHPoolDatabase; 
+    db: OpfsSAHPoolDatabase;
   } | null = null;
-  private logger: Logger = Logger.scope('DBServer');
+  private logger: Logger = Logger.scope('ORM');
+  public version: number;
   public tables: T;
+  public migration: Migration<T>;
 
-  constructor(tables: T) {
-    this.tables = tables;
+  constructor(options: SqliteWasmORMOptions<T>) {
+    this.version = options.version;
+    this.tables = options.tables;
+    this.migration = new Migration(this);
   }
 
-  private checkMetadata() {
-    //查询是否存在metadata表
-    const sql = `SELECT name FROM sqlite_master WHERE type='table' AND name='metadata';`;
-    const result = this.exec<any[]>(sql);
-    const hasMetadata = result.length > 0;
-    if (!hasMetadata) {
-      this.logger.info('Creating metadata table').print();
-      this.exec(
-        `CREATE TABLE metadata (key TEXT NOT NULL,value TEXT NOT NULL);`,
-      );
-    }
-  }
-
-  private migration() {
-    this.checkMetadata();
-    this.logger.info('Migration start').print();
-    this.logger.info('Loading models:', this.tables).print();
-    const sql = this.tables
-      .map((table) => {
-        return table.genCreateSql();
-      })
-      .join('\n');
-    return this.exec(sql);
-  }
+  // private migration() {
+  //   this.logger.info('Migration start').print();
+  //   this.migration.init();
+  //   this.logger.info('Loading models:', this.tables).print();
+  //   const sql = this.tables
+  //     .map((table) => {
+  //       return table.genCreateSql();
+  //     })
+  //     .join('\n');
+  //   return this.exec(sql);
+  // }
 
   async connect(name: string) {
     this.logger.info('Connecting to database:', name).print();
@@ -53,12 +51,13 @@ export class SqliteWasmORM<T extends Table[]> {
       const connection = {
         poolUtil,
         db,
+        name,
       };
       this.connection = connection;
       const isOpen = db.isOpen();
       if (isOpen) {
         this.logger.info('Database connection established').print();
-        this.migration();
+        this.migration.init();
         return true;
       }
       return false;
@@ -86,7 +85,10 @@ export class SqliteWasmORM<T extends Table[]> {
     return Repository.create(table, this as any);
   }
 
-  private getDBIns() {
+  /**
+   * 获取原始数据库对象
+   */
+  get dbOriginal() {
     if (this.connection) {
       return this.connection.db;
     } else {
@@ -95,7 +97,7 @@ export class SqliteWasmORM<T extends Table[]> {
   }
 
   exec<R>(sql: string) {
-    const result = this.getDBIns().exec(sql, {
+    const result = this.dbOriginal.exec(sql, {
       rowMode: 'object',
     });
     this.logger

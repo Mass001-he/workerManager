@@ -15,3 +15,7 @@ export function generateSchema(schemaObj: ISchemaObj): string {
 
   return schema;
 }
+
+export function isOK(result: any[]) {
+  return result.length > 0;
+}

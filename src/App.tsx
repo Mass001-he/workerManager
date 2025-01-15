@@ -3,6 +3,7 @@ import { Node } from './vertex/node';
 import type { Service } from './vertex/node/service';
 import { registerService } from './service';
 import { SQLView } from './sqlView';
+import './index.css';
 
 const sharedWorker = new SharedWorker(new URL('./worker.ts', import.meta.url), {
   name: 'vertexWorker',
@@ -41,16 +42,6 @@ const App = () => {
     }
   };
 
-  const postManager = () => {
-    console.log('postManager');
-    /*  worker?.post({
-      data: {
-        action: 'db',
-        sql: 'select * from user',
-      },
-    }); */
-  };
-
   const broadcast = () => {
     worker?.broadcast({
       type: '更新会话详情',
@@ -64,36 +55,34 @@ const App = () => {
     });
   };
 
-  const addChat = () => {
-    // db.chatModel?.add();
-  };
-  const searchAllChat = async () => {};
   if (!loading) {
     return null;
   }
   return (
-    <div>
-      <button
-        onClick={() => {
-          window.deleteSqlite();
-        }}
-      >
-        清空db
-      </button>
-      <button onClick={postManager}>无返回值发送消息</button>
-      <button onClick={sendMessage}>有返回值发送消息 </button>
-      <button onClick={broadcast}>广播</button>
-      <button onClick={watchBroadcast}>监听广播</button>
-
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100vh',
+      }}
+    >
       <div>
-        <button onClick={addChat}>db添加chat</button>
-        <button onClick={searchAllChat}>查询所有聊天</button>
+        <button
+          onClick={() => {
+            window.deleteSqlite();
+          }}
+        >
+          清空db
+        </button>
+        <button onClick={sendMessage}>有返回值发送消息 </button>
+        <button onClick={broadcast}>广播</button>
+        <button onClick={watchBroadcast}>监听广播</button>
       </div>
 
       <div
         style={{
           width: '100%',
-          height: 400,
+          flex: 1,
         }}
       >
         <SQLView

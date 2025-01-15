@@ -88,7 +88,7 @@ export const tableQuery = async (
     filterConditions !== '' ? `WHERE ${filterConditions}` : '';
 
   const data = await query(
-    `SELECT * FROM ${tableName} ${whereClause} LIMIT ${pageSize} OFFSET ${(page - 1) * pageSize};`,
+    `SELECT rowid,* FROM ${tableName} ${whereClause} LIMIT ${pageSize} OFFSET ${(page - 1) * pageSize};`,
   );
   const totalResult = await query(
     `SELECT COUNT(*) as count FROM ${tableName} ${whereClause};`,
@@ -115,19 +115,10 @@ export const editTableData = async (
   value: any,
 ) => {
   const formattedValue = typeof value === 'string' ? `'${value}'` : value;
-  if (row.id) {
-    return await query(
-      `UPDATE ${tableName} SET ${field} = ${formattedValue} WHERE id = ${row.id};`,
-    );
-  } else {
-    return await query(
-      `UPDATE ${tableName} SET ${field} = ${formattedValue} WHERE ${Object.keys(
-        row,
-      )
-        .map((key) => `${key} = ${row[key]}`)
-        .join(' AND ')}}`,
-    );
-  }
+
+  return await query(
+    `UPDATE ${tableName} SET ${field} = ${formattedValue} WHERE rowid = ${row.rowid};`,
+  );
 };
 
 export const deleteTableData = async (

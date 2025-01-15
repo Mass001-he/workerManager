@@ -1,4 +1,4 @@
-import { FC, useEffect, useRef, useState } from 'react'
+import { FC, useEffect, useRef, useState } from 'react';
 import {
   clsx,
   deleteTableData,
@@ -9,47 +9,47 @@ import {
   tableQuery,
   type TFilter,
   ValidType,
-} from '../../helper'
-import styles from './index.module.css'
-import { useHelper, useViewState } from '../../context'
-import { RefreshSvg, TableSvg } from '../svg'
-import { Button } from '../button'
-import { IconButton } from '../button/iconButton'
-import { ContextMenu } from '../contextMenu'
-import { toast } from '../toast'
-import { Input } from '../input'
+} from '../../helper';
+import styles from './index.module.css';
+import { useHelper, useViewState } from '../../context';
+import { RefreshSvg, TableSvg } from '../svg';
+import { Button } from '../button';
+import { IconButton } from '../button/iconButton';
+import { ContextMenu } from '../contextMenu';
+import { toast } from '../toast';
+import { Input } from '../input';
 //#region component Types
 export interface TableProps {
-  className?: string
-  style?: React.CSSProperties
+  className?: string;
+  style?: React.CSSProperties;
 }
 //#endregion component Types
 
-const DEFPAGESIZE = getCache('pageSize') ? parseInt(getCache('pageSize')!) : 50
+const DEFPAGESIZE = getCache('pageSize') ? parseInt(getCache('pageSize')!) : 50;
 //#region component
 export const Table: FC<TableProps> = (props) => {
-  const { className, style } = props
-  const { query, exec } = useHelper()
-  const { selectedTable, setSelectedRow, selectedRow } = useViewState()
-  const columns = selectedTable?.columns
+  const { className, style } = props;
+  const { query, exec } = useHelper();
+  const { selectedTable, setSelectedRow, selectedRow } = useViewState();
+  const columns = selectedTable?.columns;
 
-  const page = useRef(1)
-  const [data, setData] = useState<any[]>([])
-  const [isEnd, setIsEnd] = useState(false)
-  const [total, setTotal] = useState(0)
-  const pageSize = useRef(DEFPAGESIZE)
-  const totalPageSize = Math.ceil(total / pageSize.current)
-  const mapFilter = useRef<TFilter>({})
+  const page = useRef(1);
+  const [data, setData] = useState<any[]>([]);
+  const [isEnd, setIsEnd] = useState(false);
+  const [total, setTotal] = useState(0);
+  const pageSize = useRef(DEFPAGESIZE);
+  const totalPageSize = Math.ceil(total / pageSize.current);
+  const mapFilter = useRef<TFilter>({});
 
   const changePageSize = (size: number) => {
-    pageSize.current = size
-    page.current = 1
-    setCache('pageSize', size)
-    queryTableData()
-  }
+    pageSize.current = size;
+    page.current = 1;
+    setCache('pageSize', size);
+    queryTableData();
+  };
 
   const queryTableData = async (callback?: () => void) => {
-    if (!selectedTable) return
+    if (!selectedTable) return;
     const res = await tableQuery(
       query,
       selectedTable.name,
@@ -58,28 +58,27 @@ export const Table: FC<TableProps> = (props) => {
         pageSize: pageSize.current,
       },
       mapFilter.current,
-    )
-    const { data, isLastPage, total } = res
-    setData(data)
-    setIsEnd(isLastPage)
-    setTotal(total)
-    callback?.()
-  }
+    );
+    const { data, isLastPage, total } = res;
+    setData(data);
+    setIsEnd(isLastPage);
+    setTotal(total);
+    callback?.();
+  };
 
   useEffect(() => {
-    queryTableData()
-  }, [selectedTable])
+    queryTableData();
+  }, [selectedTable]);
 
   const onColumnDoubleClick = async (row: any, column: any) => {
-    console.log('row[column.name]', row, column)
-    const value = prompt(`请输入新的 ${column.name} 值`, row[column.name])
-    if (value === null) return
-    if (!selectedTable) return
-    await editTableData(exec, selectedTable.name, row, column.name, value)
-    queryTableData()
-  }
+    const value = prompt(`请输入新的 ${column.name} 值`, row[column.name]);
+    if (value === null) return;
+    if (!selectedTable) return;
+    await editTableData(exec, selectedTable.name, row, column.name, value);
+    queryTableData();
+  };
 
-  if (!columns) return null
+  if (!columns) return null;
 
   return (
     <div className={clsx(className, styles.root)} style={style}>
@@ -96,19 +95,19 @@ export const Table: FC<TableProps> = (props) => {
             value={pageSize.current + ''}
             onChange={(v) => {
               if (v === '0') {
-                changePageSize(DEFPAGESIZE)
+                changePageSize(DEFPAGESIZE);
               } else if (v === '') {
-                changePageSize(1)
+                changePageSize(1);
               } else {
-                changePageSize(parseInt(v))
+                changePageSize(parseInt(v));
               }
             }}
           />
           <IconButton
             onClick={() => {
               queryTableData(() => {
-                toast.show('刷新成功')
-              })
+                toast.show('刷新成功');
+              });
             }}
           >
             <RefreshSvg size={20} />
@@ -125,8 +124,9 @@ export const Table: FC<TableProps> = (props) => {
           <thead>
             <tr>
               <th className={styles.placeholder}></th>
+              <th key={'rowid'}>rowid</th>
               {columns.map((column) => {
-                const type = formatSQLType(column.type)
+                const type = formatSQLType(column.type);
                 return (
                   <th key={column.name}>
                     <div>
@@ -142,22 +142,22 @@ export const Table: FC<TableProps> = (props) => {
                             mapFilter.current[column.name] = {
                               type,
                               value,
-                            }
-                            queryTableData()
+                            };
+                            queryTableData();
                           }}
                         />
                       </div>
                     )}
                   </th>
-                )
+                );
               })}
               <th className={styles.placeholder}></th>
             </tr>
           </thead>
           <tbody>
             {data.map((row, rowIndex) => {
-              const jsonStr = JSON.stringify(row)
-              const isSelected = selectedRow === jsonStr
+              const jsonStr = JSON.stringify(row);
+              const isSelected = selectedRow === jsonStr;
               return (
                 <ContextMenu
                   key={rowIndex + page.current}
@@ -165,45 +165,48 @@ export const Table: FC<TableProps> = (props) => {
                     {
                       label: '复制',
                       onClick: () => {
-                        navigator.clipboard.writeText(jsonStr)
-                        toast.show('已复制到剪贴板')
+                        navigator.clipboard.writeText(jsonStr);
+                        toast.show('已复制到剪贴板');
                       },
                     },
                     {
                       label: '删除',
                       onClick: async () => {
-                        if (!selectedTable) return
+                        if (!selectedTable) return;
                         //弹出确认框
-                        if (!window.confirm('确认删除吗？')) return
-                        await deleteTableData(exec, selectedTable.name, row)
-                        queryTableData()
+                        if (!window.confirm('确认删除吗？')) return;
+                        await deleteTableData(exec, selectedTable.name, row);
+                        queryTableData();
                       },
                     },
                   ]}
                 >
                   <tr
-                    key={rowIndex}
+                    key={rowIndex + page.current}
                     tabIndex={1}
                     onClick={() => {
-                      setSelectedRow(jsonStr)
+                      setSelectedRow(jsonStr);
                     }}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
-                        setSelectedRow(jsonStr)
+                        setSelectedRow(jsonStr);
                       }
                     }}
                     onContextMenu={() => {
-                      setSelectedRow(jsonStr)
+                      setSelectedRow(jsonStr);
                     }}
                     className={clsx(styles.row, isSelected && styles.selected)}
                   >
                     <td className={styles.placeholder}></td>
+                    <td key={row.rowid}>
+                      <div>{row.rowid}</div>
+                    </td>
 
                     {columns.map((column) => (
                       <td
                         key={column.name}
                         onDoubleClick={() => {
-                          onColumnDoubleClick(row, column)
+                          onColumnDoubleClick(row, column);
                         }}
                       >
                         {row[column.name]}
@@ -212,7 +215,7 @@ export const Table: FC<TableProps> = (props) => {
                     <td className={styles.placeholder}></td>
                   </tr>
                 </ContextMenu>
-              )
+              );
             })}
           </tbody>
         </table>
@@ -222,8 +225,8 @@ export const Table: FC<TableProps> = (props) => {
         <Button
           disabled={page.current === 1}
           onClick={() => {
-            page.current--
-            queryTableData()
+            page.current--;
+            queryTableData();
           }}
         >
           上一页
@@ -235,8 +238,8 @@ export const Table: FC<TableProps> = (props) => {
               <Button
                 key="start"
                 onClick={() => {
-                  page.current = 1
-                  queryTableData()
+                  page.current = 1;
+                  queryTableData();
                 }}
                 disabled={page.current === 1}
               >
@@ -249,27 +252,27 @@ export const Table: FC<TableProps> = (props) => {
                   Math.min(totalPageSize, page.current + 4),
                 )
                 .map((_, index) => {
-                  const pageIndex = Math.max(0, page.current - 4) + index + 1
+                  const pageIndex = Math.max(0, page.current - 4) + index + 1;
                   return (
                     <Button
                       size="lg"
                       key={pageIndex}
                       onClick={() => {
-                        page.current = pageIndex
-                        queryTableData()
+                        page.current = pageIndex;
+                        queryTableData();
                       }}
                       disabled={page.current === pageIndex}
                     >
                       {pageIndex}
                     </Button>
-                  )
+                  );
                 })}
               {page.current < totalPageSize - 4 && <span>...</span>}
               <Button
                 key="end"
                 onClick={() => {
-                  page.current = totalPageSize
-                  queryTableData()
+                  page.current = totalPageSize;
+                  queryTableData();
                 }}
                 disabled={page.current === totalPageSize}
               >
@@ -281,8 +284,8 @@ export const Table: FC<TableProps> = (props) => {
 
         <Button
           onClick={() => {
-            page.current++
-            queryTableData()
+            page.current++;
+            queryTableData();
           }}
           disabled={isEnd}
         >
@@ -293,6 +296,6 @@ export const Table: FC<TableProps> = (props) => {
         </span>
       </div>
     </div>
-  )
-}
+  );
+};
 //#endregion component

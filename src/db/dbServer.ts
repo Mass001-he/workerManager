@@ -111,14 +111,14 @@ const dbServer = new DBServer([userTable, postTable]);
 const userRepo = dbServer.getRepository('user');
 //test
 setTimeout(() => {
-  const users = [];
-  for (let i = 0; i < 101; i++) {
-    users.push({
-      name: `name${i}`,
-      age: i,
-    });
-  }
-  userRepo.insertMany(users);
+  // const users = [];
+  // for (let i = 0; i < 101; i++) {
+  //   users.push({
+  //     name: `name${i}`,
+  //     age: i,
+  //   });
+  // }
+  // userRepo.insertMany(users);
 }, 1000);
 
 Comlink.expose(dbServer);

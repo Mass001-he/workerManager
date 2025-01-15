@@ -93,14 +93,6 @@ export interface TabDescriptor {
   prot: MessagePort;
 }
 
-export type Prettier<T> = {
-  [P in keyof T]: T[P];
-};
-
-export type OptionProperty<T, K extends keyof T> = Prettier<
-  Partial<Pick<T, K>> & Omit<T, K>
->;
-
 export interface PayloadOptions {
   reqId?: string;
   type?: MessageType;

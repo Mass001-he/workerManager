@@ -119,6 +119,11 @@ setTimeout(() => {
   //   });
   // }
   // userRepo.insertMany(users);
+  userRepo.remove({
+    name: {
+      equal: 'name0',
+    },
+  });
 }, 1000);
 
 Comlink.expose(dbServer);

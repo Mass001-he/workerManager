@@ -1,7 +1,12 @@
 import { Logger } from '../../utils';
 import type { DBServer } from '../dbServer';
 import type { ColumnType } from './column';
-import type { Table, ColumnInfer } from './table';
+import {
+  type Table,
+  type ColumnInfer,
+  type KernelColumnsKeys,
+  kernelColumnsKeys,
+} from './table';
 
 export interface QueryOptions<T = any> {
   /** === */
@@ -51,6 +56,15 @@ export class Repository<T extends Table> {
     this.logger.info('created').print();
   }
 
+  private validateKernelCols(data: ColumnInfer<T['columns']>) {
+    const keys = Object.keys(data);
+    for (const key of keys) {
+      if (kernelColumnsKeys.includes(key as KernelColumnsKeys)) {
+        throw new Error(`Cannot change kernel columns ${key}`);
+      }
+    }
+  }
+
   private validateColumns(
     columns: ColumnInfer<T['columns']> | ColumnInfer<T['columns']>[],
   ) {
@@ -58,7 +72,7 @@ export class Repository<T extends Table> {
 
     _columns.forEach((column) => {
       Object.entries(column).forEach(([key, value]) => {
-        const res = this.table.columns[key].verify(value);
+        const res = this.columns[key].verify(value);
 
         if (res.length > 0) {
           // 报错
@@ -77,14 +91,14 @@ export class Repository<T extends Table> {
   insertMany(items: ColumnInfer<T['columns']>[]) {
     this.validateColumns(items);
 
-    const columns = Object.keys(items[0]).join(', ');
+    const columns = this.getColumn(items[0]);
 
     // 构建插入 SQL 语句
     const valuesList = items
       .map((item) => {
         const values = Object.values(item).map((value) => {
           if (typeof value === 'string') {
-            return `'${value.replace(/'/g, "''")}'`; // 处理字符串中的单引号
+            return `'${(value as string).replace(/'/g, "''")}'`; // 处理字符串中的单引号
           }
           return value;
         });
@@ -116,38 +130,11 @@ export class Repository<T extends Table> {
   ): ColumnInfer<T['columns']>[] {
     const whereClauses = Object.entries(conditions)
       .map(([attr, options]) => {
-        if (typeof options === 'string' || typeof options === 'number') {
-          return `${attr} = ${typeof options === 'string' ? `'${options.replace(/'/g, "''")}'` : options}`;
-        }
-
-        const clauses: string[] = [];
-
-        if (options.equal !== undefined) {
-          clauses.push(
-            `${attr} = ${typeof options.equal === 'string' ? `'${options.equal.replace(/'/g, "''")}'` : options.equal}`,
-          );
-        }
-        if (options.lt !== undefined) {
-          clauses.push(`${attr} < ${options.lt}`);
-        }
-        if (options.gt !== undefined) {
-          clauses.push(`${attr} > ${options.gt}`);
-        }
-        if (options.lte !== undefined) {
-          clauses.push(`${attr} <= ${options.lte}`);
-        }
-        if (options.gte !== undefined) {
-          clauses.push(`${attr} >= ${options.gte}`);
-        }
-        if (options.like !== undefined) {
-          clauses.push(`${attr} LIKE '%${options.like.replace(/'/g, "''")}%'`);
-        }
-
-        return clauses.join(' AND ');
+        return this.optionsClauses(attr, options);
       })
       .join(' AND ');
 
-    const sqlBase = `SELECT * FROM ${this.table.name} WHERE ${whereClauses}`;
+    const sqlBase = `SELECT rowid, * FROM ${this.table.name} WHERE ${whereClauses}`;
     const sql = limit ? sqlBase + ` LIMIT ${limit};` : `;`;
     const result = this.server.exec(sql) || [];
     return result as unknown as ColumnInfer<T['columns']>[];
@@ -155,16 +142,47 @@ export class Repository<T extends Table> {
 
   update() {}
 
-  updateMany() {}
+  updateMany(
+    conditions: ColumnQuery<T['columns']>,
+    newData: Omit<Partial<ColumnInfer<T['columns']>>, KernelColumnsKeys>,
+  ): boolean {
+    // 验证新数据
+    this.validateColumns(newData);
+
+    // 构建 WHERE 子句
+    const whereClauses = Object.entries(conditions)
+      .map(([key, options]) => {
+        return this.optionsClauses(key, options);
+      })
+      .join(' AND ');
+
+    // 构建 SET 子句
+    const setClauses = Object.entries(newData)
+      .map(([key, value]) => {
+        if (typeof value === 'string') {
+          return `${key} = '${value.replace(/'/g, "''")}'`; // 处理字符串中的单引号
+        }
+        return `${key} = ${value}`;
+      })
+      .join(', ');
+
+    // 构建更新 SQL 语句
+    const sql = `UPDATE ${this.table.name} SET ${setClauses} WHERE ${whereClauses}`;
+
+    // 执行更新操作
+    this.server.exec(sql);
+
+    return true;
+  }
 
   remove(conditions: ColumnQuery<T['columns']>) {
     const res = this._query(conditions, 1);
 
     if (res.length === 0) {
+      this.logger.info('No record found').print();
       return false;
     }
-
-    const deleteSql = `DELETE FROM ${this.table.name} WHERE _id = ${res[0]._id}`;
+    const deleteSql = `DELETE FROM ${this.table.name} WHERE rowid = ${res[0].rowid}`;
     const _delRes = this.server.exec(deleteSql);
     return _delRes;
   }
@@ -176,37 +194,48 @@ export class Repository<T extends Table> {
   private _remove(conditions: ColumnQuery<T['columns']>) {
     const whereClauses = Object.entries(conditions)
       .map(([key, options]) => {
-        if (typeof options === 'string' || typeof options === 'number') {
-          return `${key} = ${typeof options === 'string' ? `'${options.replace(/'/g, "''")}'` : options}`;
-        }
-        const clauses: string[] = [];
-
-        if (options.equal !== undefined) {
-          clauses.push(
-            `${key} = ${typeof options.equal === 'string' ? `'${options.equal.replace(/'/g, "''")}'` : options.equal}`,
-          );
-        }
-        if (options.lt !== undefined) {
-          clauses.push(`${key} < ${options.lt}`);
-        }
-        if (options.gt !== undefined) {
-          clauses.push(`${key} > ${options.gt}`);
-        }
-        if (options.lte !== undefined) {
-          clauses.push(`${key} <= ${options.lte}`);
-        }
-        if (options.gte !== undefined) {
-          clauses.push(`${key} >= ${options.gte}`);
-        }
-        if (options.like !== undefined) {
-          clauses.push(`${key} LIKE '%${options.like.replace(/'/g, "''")}%'`);
-        }
-
-        return clauses.join(' AND ');
+        return this.optionsClauses(key, options);
       })
       .join(' AND ');
 
     const sql = `DELETE FROM ${this.table.name} WHERE ${whereClauses}`;
     return this.server.exec(sql);
+  }
+
+  private getColumn(item: ColumnInfer<T['columns']>): string {
+    return Object.keys(item).join(', ');
+  }
+
+  private optionsClauses(
+    attr: string,
+    options: QueryOptions | string | number,
+  ) {
+    if (typeof options === 'string' || typeof options === 'number') {
+      return `${attr} = ${typeof options === 'string' ? `'${options.replace(/'/g, "''")}'` : options}`;
+    }
+    const clauses: string[] = [];
+
+    if (options.equal !== undefined) {
+      clauses.push(
+        `${attr} = ${typeof options.equal === 'string' ? `'${options.equal.replace(/'/g, "''")}'` : options.equal}`,
+      );
+    }
+    if (options.lt !== undefined) {
+      clauses.push(`${attr} < ${options.lt}`);
+    }
+    if (options.gt !== undefined) {
+      clauses.push(`${attr} > ${options.gt}`);
+    }
+    if (options.lte !== undefined) {
+      clauses.push(`${attr} <= ${options.lte}`);
+    }
+    if (options.gte !== undefined) {
+      clauses.push(`${attr} >= ${options.gte}`);
+    }
+    if (options.like !== undefined) {
+      clauses.push(`${attr} LIKE '%${options.like.replace(/'/g, "''")}%'`);
+    }
+
+    return clauses.join(' AND ');
   }
 }

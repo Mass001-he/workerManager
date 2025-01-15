@@ -7,6 +7,9 @@ type PartialKernel<T extends Record<string, any>> = OptionProperty<
   keyof KernelColumns
 >;
 
+/**
+ * 从Column对象中提取Typescript类型
+ */
 export type ColumnInfer<T extends Record<string, ColumnType>> = Prettier<
   PartialKernel<
     {
@@ -42,7 +45,7 @@ interface IndexDesc<T> {
   composite?: T[][];
 }
 
-type GetIndexFn<T> = () => IndexDesc<keyof T>;
+type GetIndexFn<T> = () => IndexDesc<keyof T & string>;
 
 type TableColumns<T extends Record<string, ColumnType>> = T & KernelColumns;
 export class Table<
@@ -69,8 +72,34 @@ export class Table<
     this.getIndex = getIndex;
   }
 
+  private genCreateIndexSql() {
+    if (!this.getIndex) {
+      return '';
+    }
+    const { composite = [], index = [], unique = [] } = this.getIndex();
+    //如果index和unique中有相同的字段，报错
+    const conflict = index.filter((i) => unique.includes(i));
+    if (conflict.length > 0) {
+      throw new Error(`index and unique has conflict column: ${conflict}`);
+    }
+    const indexSql = index.map(
+      (colName) =>
+        `CREATE INDEX IF NOT EXISTS idx_${this.name}_${colName} ON ${this.name} (${colName});`,
+    );
+    const uniqueSql = unique.map(
+      (colName) =>
+        `CREATE UNIQUE INDEX IF NOT EXISTS idx_${this.name}_${colName} ON ${this.name} (${colName});`,
+    );
+    const compositeSql = composite.map(
+      (cols) =>
+        `CREATE INDEX IF NOT EXISTS idx_${this.name}_${cols.join('_')} ON ${this.name} (${cols.join(
+          ',',
+        )});`,
+    );
+    return '\n' + [...indexSql, ...uniqueSql, ...compositeSql].join('\n');
+  }
+
   genCreateSql() {
-    const indexed = [];
     const columns = Object.entries(this.columns).map(([name, column]) => {
       let columnDesc = column;
       //@ts-expect-error  ignore wrap
@@ -85,9 +114,16 @@ export class Table<
     });
 
     const createTableSql = `CREATE TABLE IF NOT EXISTS ${this.name} (${columns.join(', ')});`;
+    const indexSql = this.genCreateIndexSql();
+    return createTableSql + indexSql;
   }
 }
 
+/**
+ * @param name 表名
+ * @param columns 列
+ * @param getIndex 返回索引描述对象
+ */
 export function table<N extends string, T extends Record<string, ColumnType>>(
   name: N,
   columns: T,

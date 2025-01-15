@@ -27,18 +27,6 @@ export class SqliteWasmORM<T extends Table[]> {
     this.migration = new Migration(this);
   }
 
-  // private migration() {
-  //   this.logger.info('Migration start').print();
-  //   this.migration.init();
-  //   this.logger.info('Loading models:', this.tables).print();
-  //   const sql = this.tables
-  //     .map((table) => {
-  //       return table.genCreateSql();
-  //     })
-  //     .join('\n');
-  //   return this.exec(sql);
-  // }
-
   async connect(name: string) {
     this.logger.info('Connecting to database:', name).print();
     const sqlite3 = await initSqlite3();

@@ -21,6 +21,19 @@ export abstract class ColumnType<Type = any> {
   _min: number | undefined = undefined;
   _enums: Type[] | undefined = undefined;
 
+  toJSON() {
+    const res: any = {};
+    Object.keys(this).forEach((key) => {
+      if (key.startsWith('_')) {
+        //@ts-expect-error ignore
+        if (this[key] !== undefined) {
+          //@ts-expect-error
+          res[key] = this[key];
+        }
+      }
+    });
+  }
+
   autoIncrement() {
     this._autoIncrement = true;
     return this;

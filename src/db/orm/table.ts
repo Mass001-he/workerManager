@@ -69,6 +69,16 @@ export class Table<
     this.getIndex = getIndex;
   }
 
+  toJSON() {
+    const columnResult = Object.entries(this.columns).map(([name, column]) => {
+      return [name, column.toJSON()];
+    });
+    return {
+      name: this.name,
+      columns: columnResult,
+    };
+  }
+
   private genCreateIndexSql() {
     if (!this.getIndex) {
       return '';

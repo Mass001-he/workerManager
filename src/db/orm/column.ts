@@ -1,3 +1,5 @@
+import { OptionProperty, Prettier } from '../../utils.type';
+
 export enum AllowedSqlType {
   TEXT = 'TEXT',
   INTEGER = 'INTEGER',
@@ -277,18 +279,21 @@ export function date() {
   return new ColumnDate();
 }
 
-type Prettier<T> = {
-  [K in keyof T]: T[K];
-};
+type PartialKernel<T extends Record<string, any>> = OptionProperty<
+  T,
+  keyof KernelColumns
+>;
 
 export type ColumnInfer<T extends Record<string, ColumnType>> = Prettier<
-  {
-    [K in keyof T as T[K] extends ColumnOptional<ColumnType>
-      ? never
-      : K]: T[K]['_type'];
-  } & {
-    [K in keyof T as T[K] extends ColumnOptional<ColumnType>
-      ? K
-      : never]?: T[K]['_type'];
-  }
+  PartialKernel<
+    {
+      [K in keyof T as T[K] extends ColumnOptional<ColumnType>
+        ? never
+        : K]: T[K]['_type'];
+    } & {
+      [K in keyof T as T[K] extends ColumnOptional<ColumnType>
+        ? K
+        : never]?: T[K]['_type'];
+    }
+  >
 >;

@@ -5,13 +5,13 @@ import {
   type RequestPayload,
   type DispatchResponsePayload,
   type NoResRequestPayload,
-  DispatchRequestPayload,
-  type Prettier,
+  type DispatchRequestPayload,
 } from '../types';
 import { SchedulerAction, TabAction } from './constant';
 import { EventQueue } from './eventQueue';
 import { Council } from './council';
 import { TabManager } from './tabManager';
+import { Prettier } from '../../utils.type';
 
 declare var self: SharedWorkerGlobalScope;
 declare var globalThis: typeof self;

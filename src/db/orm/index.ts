@@ -2,6 +2,9 @@ import { Logger } from '../../utils';
 import type { DBServer } from '../dbServer';
 import type { Table } from './table';
 
+export * from './column';
+export * from './table';
+
 export class ORM<T extends Table[]> {
   private logger = Logger.scope('ORM');
   constructor(private server: DBServer<T>) {}

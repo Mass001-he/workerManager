@@ -4,8 +4,8 @@ import initSqlite3, {
   type SAHPoolUtil,
 } from '@sqlite.org/sqlite-wasm';
 import { Logger } from '../utils';
-import { ORM } from './orm';
-import { integer, table, text, type Table } from './orm/column';
+import { ORM, table, type Table } from './orm';
+import { integer, text } from './orm/column';
 import { Repository } from './orm/repository';
 
 export class DBServer<T extends Table[]> {
@@ -90,10 +90,18 @@ const userTable = table('user', {
   age: integer().max(100),
 });
 
-const postTable = table('post', {
-  title: text(),
-  content: text(),
-});
+const postTable = table(
+  'post',
+  {
+    title: text(),
+    content: text(),
+  },
+  () => {
+    return {
+      unique: ['title'],
+    };
+  },
+);
 
 const dbServer = new DBServer([userTable, postTable]);
 

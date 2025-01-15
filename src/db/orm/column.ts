@@ -11,17 +11,15 @@ export abstract class ColumnType<Type = any> {
 
   /** 是否必填 */
   _required: boolean = true;
-  /** 是否唯一 */
-  _unique: boolean = false;
   /** 是否主键 */
   _primary: boolean = false;
   /** 是否自增 */
   _autoIncrement: boolean = false;
+  /** 默认值 */
   _default: string | undefined = undefined;
   _max: number | undefined = undefined;
   _min: number | undefined = undefined;
   _enums: Type[] | undefined = undefined;
-  _index: string | undefined = undefined;
 
   // autoIncrement() {
   //   this._autoIncrement = true;
@@ -32,16 +30,6 @@ export abstract class ColumnType<Type = any> {
   //   this._primary = true;
   //   return this;
   // }
-
-  index(name: string) {
-    this._index = name;
-    return this;
-  }
-
-  unique() {
-    this._unique = true;
-    return this;
-  }
 
   optional() {
     return new ColumnOptional(this);
@@ -61,9 +49,6 @@ export abstract class ColumnType<Type = any> {
     }
     if (this._required) {
       sql.push('NOT NULL');
-    }
-    if (this._unique) {
-      sql.push('UNIQUE');
     }
     if (this._autoIncrement) {
       sql.push('AUTOINCREMENT');

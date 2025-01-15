@@ -1,6 +1,7 @@
 import { Logger } from '../../utils';
 import type { DBServer } from '../dbServer';
-import type { ColumnType, Table, ColumnInfer } from './column';
+import type { ColumnType } from './column';
+import type { Table, ColumnInfer } from './table';
 
 export interface QueryOptions<T = any> {
   /** === */

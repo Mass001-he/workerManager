@@ -36,6 +36,14 @@ function kernelColumnPrimaryId() {
   return column;
 }
 
+interface IndexDesc<T> {
+  unique?: T[];
+  index?: T[];
+  composite?: T[][];
+}
+
+type GetIndexFn<T> = () => IndexDesc<keyof T>;
+
 type TableColumns<T extends Record<string, ColumnType>> = T & KernelColumns;
 export class Table<
   N extends string = any,
@@ -48,22 +56,22 @@ export class Table<
     _deleteAt: date().now(),
   };
 
+  public name: N;
   public columns: TableColumns<T>;
-  constructor(
-    public name: N,
-    columns: T,
-  ) {
+  public getIndex: GetIndexFn<T> | undefined = undefined;
+
+  constructor(name: N, columns: T, getIndex?: GetIndexFn<T>) {
+    this.name = name;
     this.columns = {
       ...Table.kernelColumns,
       ...columns,
     };
+    this.getIndex = getIndex;
   }
 
   genCreateSql() {
-    const columns = Object.entries({
-      ...Table.kernelColumns,
-      ...this.columns,
-    }).map(([name, column]) => {
+    const indexed = [];
+    const columns = Object.entries(this.columns).map(([name, column]) => {
       let columnDesc = column;
       //@ts-expect-error  ignore wrap
       if (column['_column']) {
@@ -72,14 +80,18 @@ export class Table<
       }
 
       const sql = columnDesc.genCreateSql();
+      sql.unshift(name);
+      return sql.join(' ');
     });
-    return `CREATE TABLE IF NOT EXISTS ${this.name} (${columns.join(', ')});`;
+
+    const createTableSql = `CREATE TABLE IF NOT EXISTS ${this.name} (${columns.join(', ')});`;
   }
 }
 
 export function table<N extends string, T extends Record<string, ColumnType>>(
   name: N,
   columns: T,
+  getIndex?: GetIndexFn<T>,
 ) {
-  return new Table<N, T>(name, columns);
+  return new Table<N, T>(name, columns, getIndex);
 }

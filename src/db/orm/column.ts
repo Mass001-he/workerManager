@@ -44,14 +44,17 @@ export abstract class ColumnType<Type = any> {
     if (this._autoIncrement && !this._primary) {
       throw new Error('AUTOINCREMENT can only be applied to a primary key');
     }
+    if (this.__sqlType) {
+      sql.push(this.__sqlType);
+    }
+    if (this._autoIncrement) {
+      sql.push('AUTOINCREMENT');
+    }
     if (this._primary) {
       sql.push('PRIMARY KEY');
     }
     if (this._required) {
       sql.push('NOT NULL');
-    }
-    if (this._autoIncrement) {
-      sql.push('AUTOINCREMENT');
     }
     if (this._default !== undefined) {
       sql.push(`DEFAULT ${this._default}`);
@@ -110,7 +113,7 @@ class ColumnText extends ColumnType<string> {
 
   default(value: string) {
     this._default = value;
-    return this;
+    return new ColumnOptional(this);
   }
 
   verify(value: any) {
@@ -151,7 +154,7 @@ export class ColumnInteger extends ColumnType<number> {
       throw new Error('value must be number');
     }
     this._default = value.toString();
-    return this;
+    return new ColumnOptional(this);
   }
 
   verify(value: any) {
@@ -175,7 +178,7 @@ class ColumnBoolean extends ColumnType<boolean> {
 
   default(value: boolean) {
     this._default = value ? 'TRUE' : 'FALSE';
-    return this;
+    return new ColumnOptional(this);
   }
 
   verify(value: any) {
@@ -188,11 +191,10 @@ class ColumnBoolean extends ColumnType<boolean> {
 }
 
 export class ColumnDate extends ColumnType<Date> {
-  _now: string | undefined = undefined;
   __sqlType = AllowedSqlType.DATETIME;
   now() {
-    this._now = 'current_timestamp';
-    return this;
+    this._default = 'current_timestamp';
+    return new ColumnOptional(this);
   }
   verify(value: any): string[] {
     const messages = [...super.verify(value)];

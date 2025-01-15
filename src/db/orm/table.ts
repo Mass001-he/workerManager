@@ -1,6 +1,6 @@
 import type { OptionProperty, Prettier } from '../../utils.type';
 import type { ColumnDate, ColumnOptional, ColumnType } from './column';
-import { ColumnInteger, date } from './column';
+import { date } from './column';
 
 type PartialKernel<T extends Record<string, any>> = OptionProperty<
   T,
@@ -25,19 +25,10 @@ export type ColumnInfer<T extends Record<string, ColumnType>> = Prettier<
 >;
 
 type KernelColumns = {
-  _id: ColumnInteger;
-  _createAt: ColumnDate;
-  _updateAt: ColumnDate;
-  _deleteAt: ColumnDate;
+  _createAt: ColumnOptional<ColumnDate>;
+  _updateAt: ColumnOptional<ColumnDate>;
+  _deleteAt: ColumnOptional<ColumnDate>;
 };
-
-function kernelColumnPrimaryId() {
-  const column = new ColumnInteger();
-  column._autoIncrement = true;
-  column._primary = true;
-  column._required = true;
-  return column;
-}
 
 interface IndexDesc<T> {
   unique?: T[];
@@ -53,10 +44,9 @@ export class Table<
   T extends Record<string, ColumnType> = any,
 > {
   static kernelColumns = {
-    _id: kernelColumnPrimaryId(),
     _createAt: date().now(),
     _updateAt: date().now(),
-    _deleteAt: date().now(),
+    _deleteAt: date().optional(),
   };
 
   public name: N;
@@ -66,8 +56,8 @@ export class Table<
   constructor(name: N, columns: T, getIndex?: GetIndexFn<T>) {
     this.name = name;
     this.columns = {
-      ...Table.kernelColumns,
       ...columns,
+      ...Table.kernelColumns,
     };
     this.getIndex = getIndex;
   }

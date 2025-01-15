@@ -29,16 +29,6 @@ const App = () => {
     };
   }, []);
 
-  const test = async () => {
-    const res = await worker?.request('getTest', 'select * from user');
-    console.log('res===>', res);
-  };
-
-  const testCreate = async () => {
-    const res = await worker?.request('createTable', {});
-    console.log('res===>', res);
-  };
-
   const sendMessage = async () => {
     try {
       const res = await worker?.request('return1', {
@@ -83,8 +73,13 @@ const App = () => {
   }
   return (
     <div>
-      <button onClick={test}>test</button>
-      <button onClick={testCreate}>test_create</button>
+      <button
+        onClick={() => {
+          window.deleteSqlite();
+        }}
+      >
+        清空db
+      </button>
       <button onClick={postManager}>无返回值发送消息</button>
       <button onClick={sendMessage}>有返回值发送消息 </button>
       <button onClick={broadcast}>广播</button>

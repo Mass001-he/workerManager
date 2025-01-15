@@ -76,11 +76,15 @@ export class DBServer<T extends Table[]> {
   }
 
   exec(sql: string) {
-    this.logger.info('SQL:', sql).print();
     const result = this.getDBIns().exec(sql, {
       rowMode: 'object',
     });
-    this.logger.info('Result:', result).print();
+    this.logger
+      .info('Exec:\n', {
+        sql,
+        result,
+      })
+      .print();
     return result;
   }
 }
@@ -104,41 +108,17 @@ const postTable = table(
 );
 
 const dbServer = new DBServer([userTable, postTable]);
-
+const userRepo = dbServer.getRepository('user');
 //test
 setTimeout(() => {
-  dbServer.getRepository('user').insert({
-    name: 'test' + Math.floor(Math.random() * 100),
-    age: Math.floor(Math.random() * 100),
-  });
-  dbServer.getRepository('user').insertMany([
-    {
-      name: 'zhangsan' + Math.floor(Math.random() * 100),
-      age: Math.floor(Math.random() * 100),
-    },
-    {
-      name: 'wangwu' + Math.floor(Math.random() * 100),
-      age: Math.floor(Math.random() * 100),
-    },
-  ]);
-  // console.time('query');
-  // const res = dbServer.getRepository('user').queryMany({
-  //   name: {
-  //     like: 'zhang66',
-  //   },
-  //   // age: {
-  //   //   gt: 10,
-  //   // },
-  // });
-  // console.log('queryMany result =====> ', res);
-  // console.timeEnd('query');
-  // const queryOne = dbServer.getRepository('user').query({
-  //   name: 'test',
-  // });
-  // console.log('queryOne result =====> ', queryOne);
-  const removeResult = dbServer.getRepository('user').remove({});
-  const q = dbServer.getRepository('user').query({});
-  console.log('removeResult result =====> ', removeResult);
-}, 2000);
+  const users = [];
+  for (let i = 0; i < 101; i++) {
+    users.push({
+      name: `name${i}`,
+      age: i,
+    });
+  }
+  userRepo.insertMany(users);
+}, 1000);
 
 Comlink.expose(dbServer);

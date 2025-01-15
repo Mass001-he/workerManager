@@ -60,7 +60,7 @@ export class Repository<T extends Table> {
       Object.entries(column).forEach(([key, value]) => {
         const res = this.table.columns[key].verify(value);
 
-        if (Array.isArray(res)) {
+        if (res.length > 0) {
           // 报错
           throw new Error(
             `Validation failed for column ${key}: ${res.join(', ')}, current value is ${value}`,

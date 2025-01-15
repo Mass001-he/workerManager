@@ -4,7 +4,7 @@ import initSqlite3, {
   type SAHPoolUtil,
 } from '@sqlite.org/sqlite-wasm';
 import { Logger } from '../utils';
-import { ORM, table, type Table } from './orm';
+import { table, type Table } from './orm';
 import { integer, text } from './orm/column';
 import { Repository } from './orm/repository';
 
@@ -13,13 +13,22 @@ export class DBServer<T extends Table[]> {
     poolUtil: SAHPoolUtil;
     db: OpfsSAHPoolDatabase;
   } | null = null;
-  private orm: ORM<T>;
   private logger: Logger = Logger.scope('DBServer');
   public tables: T;
 
   constructor(tables: T) {
     this.tables = tables;
-    this.orm = new ORM<T>(this);
+  }
+
+  private migration() {
+    this.logger.info('Migration start').print();
+    this.logger.info('Loading models:', this.tables).print();
+    const sql = this.tables
+      .map((table) => {
+        return table.genCreateSql();
+      })
+      .join('\n');
+    return this.exec(sql);
   }
 
   async connect(name: string) {
@@ -39,7 +48,7 @@ export class DBServer<T extends Table[]> {
       const isOpen = db.isOpen();
       if (isOpen) {
         this.logger.info('Database connection established').print();
-        this.orm.migration();
+        this.migration();
         return true;
       }
       return false;

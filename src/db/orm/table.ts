@@ -4,7 +4,7 @@ import { date } from './column';
 
 type PartialKernel<T extends Record<string, any>> = OptionProperty<
   T,
-  keyof KernelColumns
+  KernelColumnsKeys
 >;
 
 /**
@@ -29,6 +29,13 @@ type KernelColumns = {
   _updateAt: ColumnOptional<ColumnDate>;
   _deleteAt: ColumnOptional<ColumnDate>;
 };
+
+export type KernelColumnsKeys = keyof KernelColumns;
+export const kernelColumnsKeys: KernelColumnsKeys[] = [
+  '_createAt',
+  '_updateAt',
+  '_deleteAt',
+];
 
 interface IndexDesc<T> {
   unique?: T[];

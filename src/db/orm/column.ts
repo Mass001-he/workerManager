@@ -17,7 +17,7 @@ export abstract class ColumnType<Type = any> {
   _primary: boolean = false;
   /** 是否自增 */
   _autoIncrement: boolean = false;
-  _default: Type | undefined = undefined;
+  _default: string | undefined = undefined;
   _max: number | undefined = undefined;
   _min: number | undefined = undefined;
   _enums: Type[] | undefined = undefined;
@@ -162,7 +162,10 @@ export class ColumnInteger extends ColumnType<number> {
   }
 
   default(value: number) {
-    this._default = value;
+    if (isNaN(value)) {
+      throw new Error('value must be number');
+    }
+    this._default = value.toString();
     return this;
   }
 
@@ -183,10 +186,10 @@ export class ColumnInteger extends ColumnType<number> {
 
 class ColumnBoolean extends ColumnType<boolean> {
   __sqlType = AllowedSqlType.BOOLEAN;
-  _default: boolean | undefined = undefined;
+  _default: string | undefined = undefined;
 
   default(value: boolean) {
-    this._default = value;
+    this._default = value ? 'TRUE' : 'FALSE';
     return this;
   }
 
@@ -200,10 +203,10 @@ class ColumnBoolean extends ColumnType<boolean> {
 }
 
 export class ColumnDate extends ColumnType<Date> {
-  _now: boolean = false;
+  _now: string | undefined = undefined;
   __sqlType = AllowedSqlType.DATETIME;
   now() {
-    this._now = true;
+    this._now = 'current_timestamp';
     return this;
   }
   verify(value: any): string[] {

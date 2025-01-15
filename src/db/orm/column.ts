@@ -21,15 +21,15 @@ export abstract class ColumnType<Type = any> {
   _min: number | undefined = undefined;
   _enums: Type[] | undefined = undefined;
 
-  // autoIncrement() {
-  //   this._autoIncrement = true;
-  //   return this;
-  // }
+  autoIncrement() {
+    this._autoIncrement = true;
+    return this;
+  }
 
-  // primary() {
-  //   this._primary = true;
-  //   return this;
-  // }
+  primary() {
+    this._primary = true;
+    return this;
+  }
 
   optional() {
     return new ColumnOptional(this);

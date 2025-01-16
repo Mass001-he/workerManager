@@ -69,16 +69,18 @@ export class Migration<T extends Table[]> {
   }
 
   private checkVersion() {
-    const metadataVersion = this.orm.exec<{ value: string }[]>(
-      `SELECT value FROM metadata WHERE key='${MetadataEnum.VERSION}';`,
+    const metadataVersion = Number(
+      this.orm.exec<{ value: string }[]>(
+        `SELECT value FROM metadata WHERE key='${MetadataEnum.VERSION}';`,
+      )[0].value,
     );
-    const hasVersion = isOK(metadataVersion);
-    if (hasVersion === false) {
-      this.logger.info('Metadata version not found').print();
-      this.orm.exec(
-        `INSERT INTO metadata (key,value) VALUES ('version','${this.version}');`,
-      );
-      this.logger.info('Metadata version set to', this.version).print();
+    this.logger.info('Checking version:', metadataVersion).print();
+    if (
+      isNaN(metadataVersion) ||
+      metadataVersion > this.version ||
+      metadataVersion < 1
+    ) {
+      throw new Error('fatal error: Invalid version number');
     }
   }
 }

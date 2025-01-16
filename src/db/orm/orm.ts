@@ -9,7 +9,13 @@ export interface SqliteWasmORMOptions<T extends Table[]> {
   tables: T;
   version: number;
 }
-
+function isPositiveInt(num: number) {
+  const isDecimal = num % 1 !== 0;
+  if (isDecimal) {
+    return false;
+  }
+  return num > 0;
+}
 export class SqliteWasmORM<T extends Table[]> {
   public connection: {
     name: string;
@@ -22,6 +28,9 @@ export class SqliteWasmORM<T extends Table[]> {
   public migration: Migration<T>;
 
   constructor(options: SqliteWasmORMOptions<T>) {
+    if (isPositiveInt(options.version) === false) {
+      throw new Error('version must be an integer greater than 0');
+    }
     this.version = options.version;
     this.tables = options.tables;
     this.migration = new Migration(this);
@@ -50,6 +59,9 @@ export class SqliteWasmORM<T extends Table[]> {
       }
       return false;
     } catch (error) {
+      if (this.connection?.db) {
+        this.connection.db.close();
+      }
       this.logger.error('Failed to install OPFS VFS:', error).print();
       return false;
     }

@@ -5,6 +5,7 @@ import type { Table } from './table';
 
 enum MetadataEnum {
   VERSION = 'version',
+  SNAPSHOT = 'snapshot',
 }
 
 export class Migration<T extends Table[]> {
@@ -28,6 +29,12 @@ export class Migration<T extends Table[]> {
     return this.orm.exec(sql);
   }
 
+  snapshotTable() {
+    return this.orm.tables.map((table) => {
+      return table.toJSON();
+    });
+  }
+
   get version() {
     return this.orm.version;
   }
@@ -40,6 +47,7 @@ export class Migration<T extends Table[]> {
     const hasMetadata = isOK(result);
     if (hasMetadata === false) {
       this.logger.info('Creating metadata table').print();
+      const tables = this.snapshotTable();
       this.orm.dbOriginal.exec([
         //创建metadata表
         `CREATE TABLE metadata (key TEXT NOT NULL,value TEXT NOT NULL);`,
@@ -47,18 +55,17 @@ export class Migration<T extends Table[]> {
         `CREATE UNIQUE INDEX metadata_key ON metadata (key);`,
         //写入版本号
         `INSERT INTO metadata (key,value) VALUES ('${MetadataEnum.VERSION}','${this.version}');`,
+        //写入快照
+        `INSERT INTO metadata (key,value) VALUES ('${MetadataEnum.SNAPSHOT}','${JSON.stringify(
+          tables,
+        )}');`,
       ]);
       this._onFirstRun.fire();
     } else {
       this.checkVersion();
     }
 
-    console.log(
-      'feat',
-      this.orm.tables.map((table) => {
-        return table.toJSON();
-      }),
-    );
+    console.log('feat', this.snapshotTable());
   }
 
   private checkVersion() {

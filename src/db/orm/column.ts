@@ -9,9 +9,14 @@ export enum AllowedSqlType {
 const WrappedKey = '_column';
 
 /** 获取被包装的Column类 */
-// function unwrapColumn<T extends ColumnType>(column: T): T {
-  
-// }
+function unwrapColumn<T>(column: ColumnType<T>): ColumnType<T> {
+  //@ts-ignore
+  if (column[WrappedKey] !== undefined) {
+    //@ts-ignore
+    return unwrapColumn(column[WrappedKey]);
+  }
+  return column;
+}
 
 export abstract class ColumnType<Type = any> {
   __sqlType!: AllowedSqlType;
@@ -30,13 +35,14 @@ export abstract class ColumnType<Type = any> {
   _enums: Type[] | undefined = undefined;
 
   toJSON() {
-    const res: any = {};
-    Object.keys(this).forEach((key) => {
+    const res: any = Object.create(null);
+    const column = unwrapColumn(this);
+    Object.keys(column).forEach((key) => {
       if (key.startsWith('_')) {
         //@ts-expect-error ignore
-        if (this[key] !== undefined) {
+        if (column[key] !== undefined) {
           //@ts-expect-error
-          res[key] = this[key];
+          res[key] = column[key];
         }
       }
     });

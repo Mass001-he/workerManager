@@ -5,7 +5,7 @@
 
 > ORM
 
-<img src="./img/preview1.png">
+<img src="./img/preview2.png">
 
 # SqliteWasmORM
 

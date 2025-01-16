@@ -5,6 +5,14 @@ export enum AllowedSqlType {
   DATETIME = 'DATETIME',
 }
 
+/** 被包装的key */
+const WrappedKey = '_column';
+
+/** 获取被包装的Column类 */
+// function unwrapColumn<T extends ColumnType>(column: T): T {
+  
+// }
+
 export abstract class ColumnType<Type = any> {
   __sqlType!: AllowedSqlType;
   __type!: Type;
@@ -12,9 +20,9 @@ export abstract class ColumnType<Type = any> {
   /** 是否必填 */
   _required: boolean = true;
   /** 是否主键 */
-  _primary: boolean = false;
+  _primary: true | undefined = undefined;
   /** 是否自增 */
-  _autoIncrement: boolean = false;
+  _autoIncrement: true | undefined = undefined;
   /** 默认值 */
   _default: string | undefined = undefined;
   _max: number | undefined = undefined;
@@ -32,6 +40,7 @@ export abstract class ColumnType<Type = any> {
         }
       }
     });
+    return res;
   }
 
   autoIncrement() {
@@ -92,17 +101,24 @@ export abstract class ColumnType<Type = any> {
 export class ColumnOptional<Column extends ColumnType> extends ColumnType<
   Column['__type'] | undefined
 > {
-  constructor(protected _column: Column) {
+  constructor(column: Column) {
     super();
-    this._column._required = false;
+    column._required = false;
+    //@ts-ignore
+    this[WrappedKey] = column;
+  }
+
+  private get wrappedColumn() {
+    //@ts-ignore
+    return this[WrappedKey];
   }
 
   unwrap() {
-    return this._column;
+    return this.wrappedColumn;
   }
 
   verify(value: any) {
-    return this._column.verify(value);
+    return this.wrappedColumn.verify(value);
   }
 }
 

@@ -1,5 +1,5 @@
 import { createWorker } from './dbClient';
-import type { Service } from './vertex/node/service';
+import type { Service } from './elect/node/service';
 
 declare global {
   interface Window {

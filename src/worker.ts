@@ -1,4 +1,4 @@
-import { Scheduler } from './vertex/controller';
+import { Scheduler } from './elect/controller';
 
 const scheduler = new Scheduler();
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Node } from './vertex/node';
-import type { Service } from './vertex/node/service';
+import { Node } from './elect/node';
+import type { Service } from './elect/node/service';
 import { registerService } from './service';
 import { SQLView } from './sqlView';
 import './index.css';

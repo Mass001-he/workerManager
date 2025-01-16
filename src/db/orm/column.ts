@@ -46,7 +46,7 @@ export abstract class ColumnType<Type = any> implements ColumnParams {
   _enums: Type[] | undefined = undefined;
 
   toJSON(): ColumnParams {
-    const res: any = Object.create(null);
+    const res: any = {};
     const column = unwrapColumn(this);
     Object.keys(column).forEach((key) => {
       if (key.startsWith('_')) {

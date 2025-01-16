@@ -1,5 +1,5 @@
 import { Emitter, Logger } from '../../utils';
-import { isOK } from '../utils';
+import { diffObj, isOK } from '../utils';
 import type { ColumnParams } from './column';
 import type { SqliteWasmORM } from './orm';
 import type { Table } from './table';
@@ -14,6 +14,20 @@ export type SnapshotTableMap = Record<string, SnapshotTable>;
 export interface UpdateMetadata {
   version: number;
   snapshot: SnapshotTableMap;
+}
+
+export interface DiffTableMap {
+  [key: string]: {
+    type: 'add' | 'remove' | 'update';
+    columns?:
+      | {
+          [key: string]: {
+            type: 'add' | 'remove' | 'update';
+            column: ColumnParams;
+          };
+        }
+      | undefined;
+  };
 }
 
 export class Migration<T extends Table[]> {
@@ -34,6 +48,7 @@ export class Migration<T extends Table[]> {
       this.logger
         .info('Will Upgrading database from\n', e.from, '\n', e.to)
         .print();
+      this.diff(e.from.snapshot, e.to.snapshot);
     });
   }
 
@@ -87,23 +102,11 @@ export class Migration<T extends Table[]> {
     } else {
       this.check();
     }
-
-    console.log('feat', this.snapshotTable());
   }
 
-  diff(fromSnapshot: SnapshotTable, toSnapshot: SnapshotTable) {
-    //先比较表的差异,增加或删除了哪些表
-    const tableDiffMap: {
-      [key: string]: {
-        type: 'add' | 'remove' | 'update';
-        columns: {
-          [key: string]: {
-            type: 'add' | 'remove' | 'update';
-            column: ColumnParams;
-          };
-        };
-      };
-    } = {};
+  diff(fromSnapshot: SnapshotTableMap, toSnapshot: SnapshotTableMap) {
+    const diffResult = diffObj(fromSnapshot, toSnapshot);
+    this.logger.info('Diff result:', diffResult).print();
   }
 
   private check() {

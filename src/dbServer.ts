@@ -5,7 +5,7 @@ import { SqliteWasmORM } from './db/orm/orm';
 
 const { text, integer } = col;
 const userTable = table('user', {
-  name: text().optional(),
+  name: text(),
   age: integer().max(100),
 });
 
@@ -22,9 +22,14 @@ const postTable = table(
   },
 );
 
+const classTable = table('class', {
+  name: text(),
+  teacher: text(),
+});
+
 const orm = new SqliteWasmORM({
-  tables: [userTable, postTable],
-  version: 1,
+  tables: [userTable, postTable, classTable],
+  version: 2,
 });
 const userRepo = orm.getRepository('user');
 //test

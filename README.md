@@ -1,5 +1,10 @@
 开发80%，实现主体功能
 
+> SqlView
+<img src="./img/preview1.png">
+> ORM
+<img src="./img/preview1.png">
+
 # SqliteWasmORM
 
 1. `Repository` Table操作
@@ -23,10 +28,7 @@
 
 # Logger
 
-1.解决了打印日志无法定位代码的问题
-2.支持日志scope
-3.支持日志级别
-4.支持日志输出到非控制台(需要扩展)
+1.解决了打印日志无法定位代码的问题2.支持日志scope 3.支持日志级别4.支持日志输出到非控制台(需要扩展)
 
 # Elect - 执行者选举架构
 

@@ -220,7 +220,7 @@ export class Repository<T extends Table> {
       return _delRes;
     } else {
       // 软删除
-      const updateSql = `UPDATE ${this.table.name} SET _deleteAt = ${new Date()} WHERE rowid = ${res[0].rowid}`;
+      const updateSql = `UPDATE ${this.table.name} SET _deleteAt = current_timestamp WHERE rowid = ${res[0].rowid}`;
       const _delRes = this.server.exec(updateSql);
       return _delRes;
     }
@@ -247,7 +247,7 @@ export class Repository<T extends Table> {
       const sql = `DELETE FROM ${this.table.name} WHERE ${whereClauses}`;
       return this.server.exec(sql);
     } else {
-      const sql = `UPDATE ${this.table.name} SET _deleteAt = ${new Date()} WHERE ${whereClauses}`;
+      const sql = `UPDATE ${this.table.name} SET _deleteAt = current_timestamp WHERE ${whereClauses}`;
       return this.server.exec(sql);
     }
   }

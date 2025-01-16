@@ -1,3 +1,5 @@
+开发80%，实现主体功能
+
 # SqliteWasmORM
 
 1. `Repository` Table操作

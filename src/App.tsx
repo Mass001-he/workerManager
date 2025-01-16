@@ -90,15 +90,9 @@ const App = () => {
             window.deleteSqlite();
           }}
         >
-          清空db
+          clearDB
         </button>
-        <button onClick={sendMessage}>有返回值发送消息 </button>
-        <button onClick={broadcast}>广播</button>
-        <button onClick={watchBroadcast}>监听广播</button>
-      </div>
-
-      <div>
-        <button
+        {/* <button
           onClick={() => {
             deleteHandle(true);
           }}
@@ -111,7 +105,10 @@ const App = () => {
           placeholder="删除Name"
           value={value}
           onChange={(e) => setValue(e.target.value)}
-        />
+        /> */}
+        {/* <button onClick={sendMessage}>有返回值发送消息 </button>
+        <button onClick={broadcast}>广播</button>
+        <button onClick={watchBroadcast}>监听广播</button> */}
       </div>
 
       <div

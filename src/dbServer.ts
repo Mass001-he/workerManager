@@ -34,27 +34,28 @@ const orm = new SqliteWasmORM({
 const userRepo = orm.getRepository('user');
 //test
 setTimeout(() => {
-  // const users = [];
-  // for (let i = 0; i < 101; i++) {
-  //   users.push({
-  //     name: `name${i}`,
-  //     age: i,
-  //   });
-  // }
+  const users = [];
+  for (let i = 0; i < 101; i++) {
+    users.push({
+      name: `name${i}`,
+      age: i,
+    });
+  }
   // userRepo.insertMany(users);
-  userRepo.updateMany(
-    {
-      name: {
-        like: 'name1',
-      },
-    },
-    {
-      age: 99,
-    },
-    {
-      fast: true,
-    },
-  );
+
+  // userRepo.updateMany(
+  //   {
+  //     name: {
+  //       like: 'name1',
+  //     },
+  //   },
+  //   {
+  //     age: 99,
+  //   },
+  //   {
+  //     fast: true,
+  //   },
+  // );
   // userRepo.remove(
   //   {
   //     name: {

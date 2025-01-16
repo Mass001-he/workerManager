@@ -21,9 +21,8 @@ export function isOK(result: any[]) {
 }
 
 export type DiffActionType = 'add' | 'remove' | 'update';
-const DiffActionKey = '_diffAct';
 export interface IDiffResult {
-  [key: string]: { [DiffActionKey]: DiffActionType } | undefined | IDiffResult;
+  [key: string]: { _diffAct: DiffActionType } | undefined | IDiffResult;
 }
 /**
  *@example
@@ -53,18 +52,23 @@ export function diffObj<T extends Record<string, any>>(
           compareObjects(_from[key], _to[key], res[key] as IDiffResult);
           if (Object.keys(res[key] as IDiffResult).length === 0) {
             delete res[key];
+          } else {
+            if (res[key]) {
+              //@ts-ignore
+              res[key]._diffAct = 'update';
+            }
           }
         } else if (_to[key] === undefined) {
-          res[key] = { [DiffActionKey]: 'remove' };
+          res[key] = { _diffAct: 'remove' };
         } else if (_from[key] !== _to[key]) {
-          res[key] = { [DiffActionKey]: 'update' };
+          res[key] = { _diffAct: 'update' };
         }
       }
     }
 
     for (const key in _to) {
       if (_to.hasOwnProperty(key) && _from[key] === undefined) {
-        res[key] = { [DiffActionKey]: 'add' };
+        res[key] = { _diffAct: 'add' };
       }
     }
   }

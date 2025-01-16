@@ -1,5 +1,5 @@
 import { Emitter, Logger } from '../../utils';
-import { diffObj, isOK } from '../utils';
+import { diffObj, isOK, type IDiffResult } from '../utils';
 import type { ColumnParams } from './column';
 import type { SqliteWasmORM } from './orm';
 import type { Table } from './table';
@@ -106,7 +106,41 @@ export class Migration<T extends Table[]> {
 
   diff(fromSnapshot: SnapshotTableMap, toSnapshot: SnapshotTableMap) {
     const diffResult = diffObj(fromSnapshot, toSnapshot);
-    this.logger.info('Diff result:', diffResult).print();
+    this.logger.info('feat:Diff result:', diffResult).print();
+    this.generateSql(diffResult);
+  }
+
+  generateSql(diffResult: IDiffResult) {
+    const sqlList: string[] = [
+      'BEGIN TRANSACTION;',
+      //修改version
+      `UPDATE metadata SET value='${this.version}' WHERE key='${MetadataEnum.VERSION}';`,
+    ];
+    //第一层是表
+    for (const tableName of Object.keys(diffResult)) {
+      if (diffResult[tableName]?._diffAct) {
+        switch (diffResult[tableName]._diffAct) {
+          case 'add':
+            sqlList.push(
+              this.orm.tables
+                .find((table) => table.name === tableName)
+                ?.genCreateSql() as string,
+            );
+            break;
+          case 'remove':
+            sqlList.push(`DROP TABLE ${tableName};`);
+            break;
+          case 'update':
+            break;
+          default:
+            break;
+        }
+      }
+    }
+
+    sqlList.push('COMMIT;');
+
+    this.logger.info('feat: sqlList:', sqlList).print();
   }
 
   private check() {

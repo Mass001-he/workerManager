@@ -37,26 +37,41 @@ setTimeout(() => {
   //   });
   // }
   // userRepo.insertMany(users);
-  // userRepo.update(
+  userRepo.updateMany(
+    {
+      name: {
+        like: 'name1',
+      },
+    },
+    {
+      age: 99,
+    },
+    {
+      fast: true,
+    },
+  );
+  // userRepo.remove(
   //   {
   //     name: {
-  //       equal: 'name0',
+  //       equal: 'name5',
   //     },
   //   },
   //   {
-  //     name: 'name000',
+  //     isHardDelete: true,
+  //     fast: true,
   //   },
   // );
-  // userRepo.remove({
-  //   name: {
-  //     equal: 'name000',
-  //   },
-  // });
   // userRepo.removeMany({
   //   name: {
   //     like: 'name1',
   //   },
   // });
+
+  userRepo.queryMany({
+    rowid: {
+      gt: 10,
+    },
+  });
 }, 1000);
 
 Comlink.expose(orm);

@@ -1,5 +1,6 @@
 import { Emitter, Logger } from '../../utils';
 import { isOK } from '../utils';
+import type { ColumnParams } from './column';
 import type { SqliteWasmORM } from './orm';
 import type { Table } from './table';
 
@@ -8,14 +9,31 @@ enum MetadataEnum {
   SNAPSHOT = 'snapshot',
 }
 
+export type SnapshotTable = Record<string, ColumnParams>;
+export type SnapshotTableMap = Record<string, SnapshotTable>;
+export interface UpdateMetadata {
+  version: number;
+  snapshot: SnapshotTableMap;
+}
+
 export class Migration<T extends Table[]> {
   private logger = Logger.scope('ORM.Migration');
   private _onFirstRun = new Emitter();
   public onFirstRun = this._onFirstRun.event;
+  private _onWillUpgrade = new Emitter<{
+    from: UpdateMetadata;
+    to: UpdateMetadata;
+  }>();
+  public onWillUpgrade = this._onWillUpgrade.event;
 
   constructor(private orm: SqliteWasmORM<T>) {
     this.onFirstRun(() => {
       this.createTable();
+    });
+    this.onWillUpgrade((e) => {
+      this.logger
+        .info('Will Upgrading database from\n', e.from, '\n', e.to)
+        .print();
     });
   }
 
@@ -30,9 +48,11 @@ export class Migration<T extends Table[]> {
   }
 
   snapshotTable() {
-    return this.orm.tables.map((table) => {
-      return table.toJSON();
+    const result: SnapshotTableMap = {};
+    this.orm.tables.forEach((table) => {
+      result[table.name] = table.toJSON();
     });
+    return result;
   }
 
   get version() {
@@ -62,13 +82,28 @@ export class Migration<T extends Table[]> {
       ]);
       this._onFirstRun.fire();
     } else {
-      this.checkVersion();
+      this.check();
     }
 
     console.log('feat', this.snapshotTable());
   }
 
-  private checkVersion() {
+  diff(fromSnapshot: SnapshotTable, toSnapshot: SnapshotTable) {
+    //先比较表的差异,增加或删除了哪些表
+    const tableDiffMap: {
+      [key: string]: {
+        type: 'add' | 'remove' | 'update';
+        columns: {
+          [key: string]: {
+            type: 'add' | 'remove' | 'update';
+            column: ColumnParams;
+          };
+        };
+      };
+    } = {};
+  }
+
+  private check() {
     const metadataVersion = Number(
       this.orm.exec<{ value: string }[]>(
         `SELECT value FROM metadata WHERE key='${MetadataEnum.VERSION}';`,
@@ -81,6 +116,29 @@ export class Migration<T extends Table[]> {
       metadataVersion < 1
     ) {
       throw new Error('fatal error: Invalid version number');
+    }
+    if (metadataVersion === this.version) {
+      return;
+    }
+    if (metadataVersion < this.version) {
+      const snapshot = this.orm.exec<any[]>(
+        `SELECT value FROM metadata WHERE key='${MetadataEnum.SNAPSHOT}';`,
+      )[0].value as string;
+      if (snapshot.length === 0) {
+        throw new Error('fatal error: Invalid snapshot');
+      }
+      const fromSnapshot = JSON.parse(snapshot);
+      this.logger.info('Upgrading database').print();
+      this._onWillUpgrade.fire({
+        from: {
+          version: metadataVersion,
+          snapshot: fromSnapshot,
+        },
+        to: {
+          version: this.version,
+          snapshot: this.snapshotTable(),
+        },
+      });
     }
   }
 }

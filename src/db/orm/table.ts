@@ -1,5 +1,10 @@
 import type { OptionProperty, Prettier } from '../../utils.type';
-import type { ColumnDate, ColumnOptional, ColumnType } from './column';
+import type {
+  ColumnDate,
+  ColumnOptional,
+  ColumnParams,
+  ColumnType,
+} from './column';
 import { date } from './column';
 
 type PartialKernel<T extends Record<string, any>> = OptionProperty<
@@ -70,13 +75,11 @@ export class Table<
   }
 
   toJSON() {
-    const columnResult = Object.entries(this.columns).map(([name, column]) => {
-      return [name, column.toJSON()];
+    const result: Record<string, ColumnParams> = {};
+    Object.entries(this.columns).forEach(([name, column]) => {
+      result[name] = column.toJSON();
     });
-    return {
-      name: this.name,
-      columns: columnResult,
-    };
+    return result;
   }
 
   private genCreateIndexSql() {

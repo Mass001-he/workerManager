@@ -18,7 +18,18 @@ function unwrapColumn<T>(column: ColumnType<T>): ColumnType<T> {
   return column;
 }
 
-export abstract class ColumnType<Type = any> {
+export interface ColumnParams {
+  __sqlType: AllowedSqlType;
+  _required: boolean;
+  _primary?: boolean;
+  _autoIncrement?: boolean;
+  _default?: string;
+  _max?: number;
+  _min?: number;
+  _enums?: any[];
+}
+
+export abstract class ColumnType<Type = any> implements ColumnParams {
   __sqlType!: AllowedSqlType;
   __type!: Type;
 
@@ -34,7 +45,7 @@ export abstract class ColumnType<Type = any> {
   _min: number | undefined = undefined;
   _enums: Type[] | undefined = undefined;
 
-  toJSON() {
+  toJSON(): ColumnParams {
     const res: any = Object.create(null);
     const column = unwrapColumn(this);
     Object.keys(column).forEach((key) => {

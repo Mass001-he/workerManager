@@ -33,6 +33,7 @@ type KernelColumns = {
   _createAt: ColumnOptional<ColumnDate>;
   _updateAt: ColumnOptional<ColumnDate>;
   _deleteAt: ColumnOptional<ColumnDate>;
+  rowid: ColumnOptional<any>;
 };
 
 export type KernelColumnsKeys = keyof KernelColumns;
@@ -40,6 +41,7 @@ export const kernelColumnsKeys: KernelColumnsKeys[] = [
   '_createAt',
   '_updateAt',
   '_deleteAt',
+  'rowid',
 ];
 
 interface IndexDesc<T> {
@@ -67,6 +69,7 @@ export class Table<
 
   constructor(name: N, columns: T, getIndex?: GetIndexFn<T>) {
     this.name = name;
+    // @ts-ignore
     this.columns = {
       ...columns,
       ...Table.kernelColumns,

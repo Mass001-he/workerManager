@@ -12,6 +12,7 @@ const sharedWorker = new SharedWorker(new URL('./worker.ts', import.meta.url), {
 const App = () => {
   const [worker, setWorker] = useState<Node | null>(null);
   const [loading, setLoading] = useState(false);
+  const [value, setValue] = useState(''); // 删除ID
 
   useEffect(() => {
     const boot = async () => {
@@ -55,6 +56,23 @@ const App = () => {
     });
   };
 
+  const deleteHandle = async (isHardDelete: boolean = false) => {
+    if (!value) {
+      return alert('请输入ID');
+    }
+    try {
+      const res = await worker?.request('deleteMsg', {
+        data: {
+          deleteName: value,
+          isHardDelete,
+        },
+      });
+      console.log('deleteHandle', res);
+    } catch (error) {
+      console.log('error===>', error);
+    }
+  };
+
   if (!loading) {
     return null;
   }
@@ -77,6 +95,23 @@ const App = () => {
         <button onClick={sendMessage}>有返回值发送消息 </button>
         <button onClick={broadcast}>广播</button>
         <button onClick={watchBroadcast}>监听广播</button>
+      </div>
+
+      <div>
+        <button
+          onClick={() => {
+            deleteHandle(true);
+          }}
+        >
+          硬删除ID
+        </button>
+        <button onClick={() => deleteHandle()}>软删除ID</button>
+        <input
+          type="text"
+          placeholder="删除ID"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+        />
       </div>
 
       <div

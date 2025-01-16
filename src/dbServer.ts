@@ -36,9 +36,24 @@ setTimeout(() => {
   //   });
   // }
   // userRepo.insertMany(users);
+  // userRepo.update(
+  //   {
+  //     name: {
+  //       equal: 'name0',
+  //     },
+  //   },
+  //   {
+  //     name: 'name000',
+  //   },
+  // );
   // userRepo.remove({
   //   name: {
-  //     equal: 'name0',
+  //     equal: 'name000',
+  //   },
+  // });
+  // userRepo.removeMany({
+  //   name: {
+  //     like: 'name1',
   //   },
   // });
 }, 1000);

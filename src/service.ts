@@ -29,13 +29,9 @@ export async function registerService(service: Service) {
     return rpc.exec(sql);
   });
   service.add('deleteMsg', async ({ data }) => {
-    const userRepo = await rpc.getRepository('user');
-
-    return userRepo.remove(
-      {
-        name: data.deleteName,
-      },
-      data.isHardDelete,
-    );
+    rpc.operate({
+      type: 'deleteMsg',
+      data,
+    });
   });
 }

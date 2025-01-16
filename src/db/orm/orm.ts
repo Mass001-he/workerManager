@@ -96,4 +96,20 @@ export class SqliteWasmORM<T extends Table[]> {
       .print();
     return result as R;
   }
+
+  operate({ type, data }: { type: string; data: any }) {
+    switch (type) {
+      case 'deleteMsg':
+        this.getRepository('user').remove(
+          {
+            name: data.deleteName,
+          },
+          data.isHardDelete,
+        );
+        break;
+
+      default:
+        throw new Error(`Unknown operate type: ${type}`);
+    }
+  }
 }

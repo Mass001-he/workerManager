@@ -50,6 +50,9 @@ export class Migration<T extends Table[]> {
   snapshotTable() {
     const result: SnapshotTableMap = {};
     this.orm.tables.forEach((table) => {
+      if (result[table.name]) {
+        throw new Error(`duplicate table name: ${table.name}`);
+      }
       result[table.name] = table.toJSON();
     });
     return result;

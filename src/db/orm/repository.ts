@@ -166,7 +166,7 @@ export class Repository<T extends Table> {
     }
   }
 
-  _fastUpdate(
+  private _fastUpdate(
     conditions: ColumnQuery<T['columns']>,
     newData: Partial<ColumnInfer<T['columns']>>,
   ) {
@@ -183,7 +183,7 @@ export class Repository<T extends Table> {
     return true;
   }
 
-  _update(
+  private _update(
     conditions: ColumnQuery<T['columns']>,
     newData: Partial<ColumnInfer<T['columns']>>,
   ) {
@@ -224,7 +224,7 @@ export class Repository<T extends Table> {
     }
   }
 
-  _fastUpdateMany(
+  private _fastUpdateMany(
     conditions: ColumnQuery<T['columns']>,
     newData: Partial<ColumnInfer<T['columns']>>,
   ) {
@@ -242,7 +242,7 @@ export class Repository<T extends Table> {
     return true;
   }
 
-  _updateMany(
+  private _updateMany(
     conditions: ColumnQuery<T['columns']>,
     newData: Partial<ColumnInfer<T['columns']>>,
   ) {
@@ -303,7 +303,7 @@ export class Repository<T extends Table> {
    * @param options
    * @returns
    */
-  _fastRemove(
+  private _fastRemove(
     conditions: ColumnQuery<T['columns']>,
     options: {
       isHardDelete?: boolean;

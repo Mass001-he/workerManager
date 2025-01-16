@@ -103,12 +103,12 @@ const App = () => {
             deleteHandle(true);
           }}
         >
-          硬删除ID
+          硬删除name
         </button>
-        <button onClick={() => deleteHandle()}>软删除ID</button>
+        <button onClick={() => deleteHandle()}>软删除name</button>
         <input
           type="text"
-          placeholder="删除ID"
+          placeholder="删除Name"
           value={value}
           onChange={(e) => setValue(e.target.value)}
         />

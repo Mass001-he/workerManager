@@ -1,3 +1,27 @@
+# SqliteWasmORM
+
+1. `Repository` Table操作
+2. `Table` 模型
+3. `Migration` 数据库迁移(升级，校验) [40%]
+
+# Opfs
+
+1. 支持了路径
+2. 按nodejs的fs模块实现的文件操作
+3. 封装了简化的opfs操作类模块
+
+# SqlView
+
+1. 支持查看SqliteWasm的数据库
+2. 查看表结构
+3. 分页查看表记录
+4. 部分类型的筛选
+5. Sql执行器
+
+# Logger
+
+1.解决了打印日志无法定位代码的问题
+
 # 执行者选举架构(vertex)
 
 使用场景：需要一个执行者来执行任务时。例如：多tab页签,多worker线程,多进程等。

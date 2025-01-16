@@ -206,31 +206,50 @@ export class Repository<T extends Table> {
     return true;
   }
 
-  remove(conditions: ColumnQuery<T['columns']>) {
+  remove(conditions: ColumnQuery<T['columns']>, isHardDelete: boolean = false) {
     const res: any[] = this._query(conditions, 1);
 
     if (res.length === 0) {
       this.logger.info('No record found').print();
       return false;
     }
-    const deleteSql = `DELETE FROM ${this.table.name} WHERE rowid = ${res[0].rowid}`;
-    const _delRes = this.server.exec(deleteSql);
-    return _delRes;
+    if (isHardDelete) {
+      // 硬删除
+      const deleteSql = `DELETE FROM ${this.table.name} WHERE rowid = ${res[0].rowid}`;
+      const _delRes = this.server.exec(deleteSql);
+      return _delRes;
+    } else {
+      // 软删除
+      const updateSql = `UPDATE ${this.table.name} SET _deleteAt = ${new Date()} WHERE rowid = ${res[0].rowid}`;
+      const _delRes = this.server.exec(updateSql);
+      return _delRes;
+    }
   }
 
-  removeMany(conditions: ColumnQuery<T['columns']>) {
-    return this._remove(conditions);
+  removeMany(
+    conditions: ColumnQuery<T['columns']>,
+    isHardDelete: boolean = false,
+  ) {
+    return this._remove(conditions, isHardDelete);
   }
 
-  private _remove(conditions: ColumnQuery<T['columns']>) {
+  private _remove(
+    conditions: ColumnQuery<T['columns']>,
+    isHardDelete: boolean = false,
+  ) {
     const whereClauses = Object.entries(conditions)
       .map(([key, options]) => {
         return this.optionsClauses(key, options);
       })
       .join(' AND ');
 
-    const sql = `DELETE FROM ${this.table.name} WHERE ${whereClauses}`;
-    return this.server.exec(sql);
+    if (isHardDelete) {
+      const sql = `DELETE FROM ${this.table.name} WHERE ${whereClauses}`;
+      return this.server.exec(sql);
+    } else {
+      const sql = `UPDATE ${this.table.name} SET _deleteAt = ${new Date()} WHERE ${whereClauses}`;
+      return this.server.exec(sql);
+    }
   }
 
   private getColumn(item: ColumnInfer<T['columns']>): string {

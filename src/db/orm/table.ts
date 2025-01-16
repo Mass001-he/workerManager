@@ -5,7 +5,7 @@ import type {
   ColumnParams,
   ColumnType,
 } from './column';
-import { date } from './column';
+import { col } from './column';
 
 type PartialKernel<T extends Record<string, any>> = OptionProperty<
   T,
@@ -56,9 +56,9 @@ export class Table<
   T extends Record<string, ColumnType> = any,
 > {
   static kernelColumns = {
-    _createAt: date().now(),
-    _updateAt: date().now(),
-    _deleteAt: date().optional(),
+    _createAt: col.date().now(),
+    _updateAt: col.date().now(),
+    _deleteAt: col.date().optional(),
   };
 
   public name: N;

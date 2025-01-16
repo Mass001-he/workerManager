@@ -1,8 +1,9 @@
 import * as Comlink from 'comlink';
 import { table } from './db/orm';
-import { integer, text } from './db/orm/column';
+import { col } from './db/orm/column';
 import { SqliteWasmORM } from './db/orm/orm';
 
+const { text, integer } = col;
 const userTable = table('user', {
   name: text().optional(),
   age: integer().max(100),
@@ -23,7 +24,7 @@ const postTable = table(
 
 const orm = new SqliteWasmORM({
   tables: [userTable, postTable],
-  version: 2,
+  version: 1,
 });
 const userRepo = orm.getRepository('user');
 //test

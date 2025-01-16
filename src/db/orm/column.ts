@@ -251,18 +251,25 @@ export class ColumnDate extends ColumnType<Date> {
   }
 }
 
-export function text() {
+function text() {
   return new ColumnText();
 }
 
-export function integer() {
+function integer() {
   return new ColumnInteger();
 }
 
-export function boolean() {
+function boolean() {
   return new ColumnBoolean();
 }
 
-export function date() {
+function date() {
   return new ColumnDate();
 }
+
+export const col = {
+  text,
+  integer,
+  boolean,
+  date,
+};

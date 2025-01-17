@@ -29,9 +29,6 @@ export async function registerService(service: Service) {
     return rpc.exec(sql);
   });
   service.add('deleteMsg', async ({ data }) => {
-    rpc.operate({
-      type: 'deleteMsg',
-      data,
-    });
+    // todo
   });
 }

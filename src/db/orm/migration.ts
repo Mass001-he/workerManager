@@ -193,27 +193,35 @@ export class Migration<T extends Table[]> {
           if (columns[columnName]?._diffAct) {
             switch (columns[columnName]._diffAct) {
               case 'add':
-                const table = this.orm.findTable(tableName);
-                // const column = table.columns[columnName].column as
-                //   | undefined
-                //   | ColumnType;
-                // if (!column) {
-                //   throw new Error('fatal error: column not found');
-                // }
-                console.log('ORM.add', table);
-                break;
-              case 'remove':
-                //打印： 检查到您进行了删除字段操作,ORM将进行兼容性更新，将原字段的NotNull移除，重命名，设置Default NULL
-                this.logger.error(`!!!!!!`).print();
-                this.logger
-                  .error(
-                    `Detected that you have deleted the field "${columnName}" in the table "${tableName}", ORM will perform a compatibility update, remove NotNull of the original field, rename, and set Default NULL`,
-                  )
-                  .print();
-                this.logger.error(`!!!!!!`).print();
+                {
+                  const table = this.orm.findTable(tableName);
+                  const column = table.columns[columnName] as
+                    | undefined
+                    | ColumnType;
+                  if (!column) {
+                    throw new Error('fatal error: column not found');
+                  }
+                  if (
+                    column._required === true &&
+                    column._default === undefined
+                  ) {
+                    throw new Error(
+                      'fatal error:add column error ,Mandatory fields were added or modified, but no default values were set',
+                    );
+                  }
+                  sqlList.push(
+                    `ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${column.genCreateSql().join(' ')};`,
+                  );
+                }
                 break;
               case 'update':
-                break;
+                throw new Error(
+                  `fatal error: update column not support,SQLite does not support direct modification of existing field constraints, but can only be implemented indirectly by rebuilding the table.`,
+                );
+              case 'remove':
+                throw new Error(
+                  `fatal error: remove column not support,SQLite does not support direct modification of existing field constraints, but can only be implemented indirectly by rebuilding the table.`,
+                );
               default:
                 break;
             }

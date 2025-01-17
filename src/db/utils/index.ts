@@ -39,19 +39,26 @@ export interface IDiffResult {
 export function diffObj<T extends Record<string, any>>(
   from: T,
   to: T,
+  exclude?: (layer: number, key: string) => boolean,
 ): IDiffResult {
   const result: IDiffResult = {};
 
-  function compareObjects(_from: T, _to: T, res: IDiffResult) {
+  function compareObjects(_from: T, _to: T, res: IDiffResult, layer = 0) {
     for (const key in _from) {
       if (_from.hasOwnProperty(key)) {
+        if (exclude?.(layer, key)) continue;
         if (
           typeof _from[key] === 'object' &&
           _from[key] !== null &&
           _to[key] !== undefined
         ) {
           res[key] = {};
-          compareObjects(_from[key], _to[key], res[key] as IDiffResult);
+          compareObjects(
+            _from[key],
+            _to[key],
+            res[key] as IDiffResult,
+            layer + 1,
+          );
           if (Object.keys(res[key] as IDiffResult).length === 0) {
             delete res[key];
           } else {
@@ -69,8 +76,11 @@ export function diffObj<T extends Record<string, any>>(
     }
 
     for (const key in _to) {
-      if (_to.hasOwnProperty(key) && _from[key] === undefined) {
-        res[key] = { _diffAct: 'add' };
+      if (_to.hasOwnProperty(key)) {
+        if (exclude?.(layer, key)) continue;
+        if (_from[key] === undefined) {
+          res[key] = { _diffAct: 'add' };
+        }
       }
     }
   }

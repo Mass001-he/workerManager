@@ -168,23 +168,32 @@ export class Migration<T extends Table[]> {
   }
 
   diff(fromSnapshot: SnapshotTableMap, toSnapshot: SnapshotTableMap) {
-    const diffColumnsResult = diffObj(fromSnapshot, toSnapshot);
+    const diffColumnsResult = diffObj(
+      fromSnapshot,
+      toSnapshot,
+      (layer, key) => {
+        if (layer === 1 && key === 'indexMap') {
+          return true;
+        }
+        return false
+      },
+    );
     const diffIndexResult = this.diffIndex(fromSnapshot, toSnapshot);
     this.logger.info('feat:Diff result:', diffColumnsResult).print();
     this.logger.info('feat:Diff index result:', diffIndexResult).print();
-    this.generateSql(diffColumnsResult);
+    this.generateSql(diffColumnsResult, diffIndexResult);
   }
 
-  generateSql(diffResult: IDiffResult) {
+  generateSql(diffColumns: IDiffResult, diffIndex: IDiffResult) {
     const sqlList: string[] = [
       'BEGIN TRANSACTION;',
       //修改version
       `UPDATE metadata SET value='${this.version}' WHERE key='${MetadataEnum.VERSION}';`,
     ];
     //第一层是表
-    for (const tableName of Object.keys(diffResult)) {
-      if (diffResult[tableName]?._diffAct) {
-        switch (diffResult[tableName]._diffAct) {
+    for (const tableName of Object.keys(diffColumns)) {
+      if (diffColumns[tableName]?._diffAct) {
+        switch (diffColumns[tableName]._diffAct) {
           case 'add':
             sqlList.push(
               this.orm.tables

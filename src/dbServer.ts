@@ -15,6 +15,9 @@ const userTable = table(
   () => {
     return {
       index: ['name'],
+      composite: {
+        name_age: ['name', 'age'],
+      },
     };
   },
 );
@@ -40,7 +43,10 @@ const version2 = {
       },
       () => {
         return {
-          index: ['name'],
+          index: ['age'],
+          composite: {
+            name_nickname: ['name', 'nickname'],
+          },
         };
       },
     ),

@@ -67,7 +67,7 @@ export class SqliteWasmORM<T extends Table[]> {
     }
   }
 
-  private findTable<N extends T[number]['name']>(
+  findTable<N extends T[number]['name']>(
     name: N,
   ): Extract<T[number], { name: N }> {
     const table = this.tables.find((table) => table.name === name) as Extract<

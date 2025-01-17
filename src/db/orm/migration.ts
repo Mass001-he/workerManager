@@ -6,7 +6,7 @@ import {
   isOK,
   type IDiffResult,
 } from '../utils';
-import type { ColumnParams } from './column';
+import type { ColumnParams, ColumnType } from './column';
 import type { SqliteWasmORM } from './orm';
 import type { IndexDesc, Table } from './table';
 
@@ -175,7 +175,7 @@ export class Migration<T extends Table[]> {
         if (layer === 1 && key === 'indexMap') {
           return true;
         }
-        return false
+        return false;
       },
     );
     const diffIndexResult = this.diffIndex(fromSnapshot, toSnapshot);
@@ -185,33 +185,148 @@ export class Migration<T extends Table[]> {
   }
 
   generateSql(diffColumns: IDiffResult, diffIndex: IDiffResult) {
-    const sqlList: string[] = [
-      'BEGIN TRANSACTION;',
-      //修改version
-      `UPDATE metadata SET value='${this.version}' WHERE key='${MetadataEnum.VERSION}';`,
-    ];
-    //第一层是表
+    const sqlList: string[] = ['BEGIN TRANSACTION;'];
+    const handleColumns = (tableName: string, columns: IDiffResult) => {
+      this.logger.info('feat: handleColumns:', tableName, columns).print();
+      if (columns) {
+        for (const columnName of Object.keys(columns)) {
+          if (columns[columnName]?._diffAct) {
+            switch (columns[columnName]._diffAct) {
+              case 'add':
+                const table = this.orm.findTable(tableName);
+                // const column = table.columns[columnName].column as
+                //   | undefined
+                //   | ColumnType;
+                // if (!column) {
+                //   throw new Error('fatal error: column not found');
+                // }
+                console.log('ORM.add', table);
+                break;
+              case 'remove':
+                //打印： 检查到您进行了删除字段操作,ORM将进行兼容性更新，将原字段的NotNull移除，重命名，设置Default NULL
+                this.logger.error(`!!!!!!`).print();
+                this.logger
+                  .error(
+                    `Detected that you have deleted the field "${columnName}" in the table "${tableName}", ORM will perform a compatibility update, remove NotNull of the original field, rename, and set Default NULL`,
+                  )
+                  .print();
+                this.logger.error(`!!!!!!`).print();
+                break;
+              case 'update':
+                break;
+              default:
+                break;
+            }
+          }
+        }
+      }
+    };
+
     for (const tableName of Object.keys(diffColumns)) {
       if (diffColumns[tableName]?._diffAct) {
         switch (diffColumns[tableName]._diffAct) {
           case 'add':
-            sqlList.push(
-              this.orm.tables
-                .find((table) => table.name === tableName)
-                ?.genCreateSql() as string,
-            );
+            sqlList.push(this.orm.findTable(tableName).genCreateSql());
             break;
           case 'remove':
             sqlList.push(`DROP TABLE ${tableName};`);
             break;
           case 'update':
+            //@ts-ignore
+            handleColumns(tableName, diffColumns[tableName].columns);
             break;
           default:
-            break;
+            throw new Error('fatal error: Invalid diff act');
         }
       }
     }
 
+    for (const tableName of Object.keys(diffIndex)) {
+      const indexDiff = diffIndex[tableName] as unknown as {
+        index?: IDiffResult;
+        unique?: IDiffResult;
+        composite?: IDiffResult;
+      };
+
+      if (indexDiff.index) {
+        for (const indexName of Object.keys(indexDiff.index)) {
+          if (indexDiff.index[indexName]?._diffAct) {
+            switch (indexDiff.index[indexName]._diffAct) {
+              case 'add':
+                sqlList.push(
+                  `CREATE INDEX IF NOT EXISTS idx_${tableName}_${indexName} ON ${tableName} (${indexName});`,
+                );
+                break;
+              case 'remove':
+                sqlList.push(
+                  `DROP INDEX IF EXISTS idx_${tableName}_${indexName};`,
+                );
+                break;
+              case 'update':
+              default:
+                throw new Error(
+                  'fatal error: for-of Object.keys(indexDiff.index): Invalid diff act',
+                );
+            }
+          }
+        }
+      }
+
+      if (indexDiff.unique) {
+        for (const indexName of Object.keys(indexDiff.unique)) {
+          if (indexDiff.unique[indexName]?._diffAct) {
+            switch (indexDiff.unique[indexName]._diffAct) {
+              case 'add':
+                sqlList.push(
+                  `CREATE UNIQUE INDEX IF NOT EXISTS idx_${tableName}_${indexName} ON ${tableName} (${indexName});`,
+                );
+                break;
+              case 'remove':
+                sqlList.push(
+                  `DROP INDEX IF EXISTS idx_${tableName}_${indexName};`,
+                );
+                break;
+              case 'update':
+              default:
+                throw new Error(
+                  'fatal error: for-of Object.keys(indexDiff.unique): Invalid diff act',
+                );
+            }
+          }
+        }
+      }
+
+      if (indexDiff.composite) {
+        for (const indexName of Object.keys(indexDiff.composite)) {
+          if (indexDiff.composite[indexName]?._diffAct) {
+            switch (indexDiff.composite[indexName]._diffAct) {
+              case 'add':
+                const table = this.orm.findTable(tableName);
+                const index = table.getIndex?.() ?? {};
+                const cols = index.composite?.[indexName] ?? [];
+                sqlList.push(
+                  `CREATE INDEX IF NOT EXISTS idx_${tableName}_${indexName} ON ${tableName} (${cols.join(',')});`,
+                );
+                break;
+              case 'remove':
+                sqlList.push(
+                  `DROP INDEX IF EXISTS idx_${tableName}_${indexName};`,
+                );
+                break;
+              case 'update':
+              default:
+                throw new Error(
+                  'fatal error: for-of Object.keys(indexDiff.composite): Invalid diff act',
+                );
+            }
+          }
+        }
+      }
+    }
+
+    sqlList.push(
+      `UPDATE metadata SET value='${this.version}' WHERE key='${MetadataEnum.VERSION}';`,
+    );
     sqlList.push('COMMIT;');
 
     this.logger.info('feat: sqlList:', sqlList).print();

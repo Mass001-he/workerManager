@@ -41,10 +41,9 @@ export const kernelColumnsKeys: KernelColumnsKeys[] = [
   '_createAt',
   '_updateAt',
   '_deleteAt',
-  'rowid',
 ];
 
-interface IndexDesc<T> {
+export interface IndexDesc<T> {
   unique?: T[];
   index?: T[];
   composite?: T[][];
@@ -80,7 +79,9 @@ export class Table<
   toJSON() {
     const result: Record<string, ColumnParams> = {};
     Object.entries(this.columns).forEach(([name, column]) => {
-      result[name] = column.toJSON();
+      if (kernelColumnsKeys.includes(name as KernelColumnsKeys) === false) {
+        result[name] = column.toJSON();
+      }
     });
     return result;
   }

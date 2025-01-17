@@ -40,10 +40,23 @@ export function diffObj<T extends Record<string, any>>(
 ): IDiffResult {
   const result: IDiffResult = {};
 
+  function compareArrays(_from: T[], _to: T[], res: IDiffResult) {
+    for (let i = 0; i < _from.length; i++) {
+  
+    }
+
+    for (let i = _from.length; i < _to.length; i++) {
+      res[i] = { _diffAct: 'add' };
+    }
+  }
+
   function compareObjects(_from: T, _to: T, res: IDiffResult) {
     for (const key in _from) {
       if (_from.hasOwnProperty(key)) {
-        if (
+        if (Array.isArray(_from[key]) && Array.isArray(_to[key])) {
+          console.log('ORM.M', key, _from[key], _to[key]);
+          
+        } else if (
           typeof _from[key] === 'object' &&
           _from[key] !== null &&
           _to[key] !== undefined

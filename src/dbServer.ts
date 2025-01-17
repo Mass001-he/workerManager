@@ -4,11 +4,20 @@ import { col } from './db/orm/column';
 import { SqliteWasmORM } from './db/orm/orm';
 
 const { text, integer } = col;
-const userTable = table('user', {
-  name: text().optional(),
-  age: integer().max(100),
-  profile: text(),
-});
+const userTable = table(
+  'user',
+  {
+    name: text().optional(),
+    age: integer().max(100),
+    profile: text(),
+    avatar: text(),
+  },
+  () => {
+    return {
+      index: ['name'],
+    };
+  },
+);
 
 const postTable = table(
   'post',
@@ -18,7 +27,7 @@ const postTable = table(
   },
   () => {
     return {
-      unique: ['title'],
+      unique: ['title', 'content'],
     };
   },
 );
@@ -35,8 +44,8 @@ const studentTable = table('student', {
 });
 
 const orm = new SqliteWasmORM({
-  tables: [userTable, postTable, studentTable],
-  version: 3,
+  tables: [userTable, postTable],
+  version: 2,
 });
 const userRepo = orm.getRepository('user');
 //test

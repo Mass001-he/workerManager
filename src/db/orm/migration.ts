@@ -2,15 +2,22 @@ import { Emitter, Logger } from '../../utils';
 import { diffObj, isOK, type IDiffResult } from '../utils';
 import type { ColumnParams } from './column';
 import type { SqliteWasmORM } from './orm';
-import type { Table } from './table';
+import type { IndexDesc, Table } from './table';
 
 enum MetadataEnum {
   VERSION = 'version',
   SNAPSHOT = 'snapshot',
 }
 
-export type SnapshotTable = Record<string, ColumnParams>;
-export type SnapshotTableMap = Record<string, SnapshotTable>;
+export type SnapshotTable = {
+  columns: Record<string, ColumnParams>;
+  indexMap?: IndexDesc<any>;
+};
+
+export type SnapshotTableMap = {
+  [key: string]: SnapshotTable;
+};
+
 export interface UpdateMetadata {
   version: number;
   snapshot: SnapshotTableMap;
@@ -68,7 +75,12 @@ export class Migration<T extends Table[]> {
       if (result[table.name]) {
         throw new Error(`duplicate table name: ${table.name}`);
       }
-      result[table.name] = table.toJSON();
+      result[table.name] = {
+        columns: table.toJSON(),
+      };
+      if (table.getIndex) {
+        result[table.name].indexMap = table.getIndex();
+      }
     });
     return result;
   }

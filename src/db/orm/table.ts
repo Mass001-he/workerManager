@@ -43,10 +43,12 @@ export const kernelColumnsKeys: KernelColumnsKeys[] = [
   '_deleteAt',
 ];
 
-export interface IndexDesc<T> {
+export interface IndexDesc<T extends string = string> {
   unique?: T[];
   index?: T[];
-  composite?: T[][];
+  composite?: {
+    [index: string]: T[];
+  };
 }
 
 type GetIndexFn<T> = () => IndexDesc<keyof T & string>;
@@ -104,12 +106,11 @@ export class Table<
       (colName) =>
         `CREATE UNIQUE INDEX IF NOT EXISTS idx_${this.name}_${colName} ON ${this.name} (${colName});`,
     );
-    const compositeSql = composite.map(
-      (cols) =>
-        `CREATE INDEX IF NOT EXISTS idx_${this.name}_${cols.join('_')} ON ${this.name} (${cols.join(
-          ',',
-        )});`,
-    );
+    const compositeSql = Object.entries(composite).map(([indexName, cols]) => {
+      return `CREATE INDEX IF NOT EXISTS idx_${this.name}_${indexName} ON ${this.name} (${cols.join(
+        ',',
+      )});`;
+    });
     return '\n' + [...indexSql, ...uniqueSql, ...compositeSql].join('\n');
   }
 

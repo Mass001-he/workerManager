@@ -19,34 +19,37 @@ const userTable = table(
   },
 );
 
-const postTable = table(
-  'post',
-  {
-    title: text(),
-    content: text(),
-  },
-  () => {
-    return {
-      unique: ['title', 'content'],
-    };
-  },
-);
-
-const classTable = table('class', {
-  name: text(),
-  teacher: text(),
+const postTable = table('post', {
+  title: text(),
+  content: text(),
 });
+const version1 = {
+  tables: [userTable],
+  version: 1,
+};
 
-const studentTable = table('student', {
-  name: text(),
-  age: integer(),
-  classId: integer(),
-});
-
-const orm = new SqliteWasmORM({
-  tables: [userTable, postTable],
+const version2 = {
+  tables: [
+    table(
+      'user',
+      {
+        name: text(),
+        age: integer().max(100),
+        profile: text(),
+        nickname: text(),
+      },
+      () => {
+        return {
+          index: ['name'],
+        };
+      },
+    ),
+    postTable,
+  ],
   version: 2,
-});
+};
+
+const orm = new SqliteWasmORM(version2);
 const userRepo = orm.getRepository('user');
 //test
 setTimeout(() => {

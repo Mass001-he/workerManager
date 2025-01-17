@@ -25,7 +25,9 @@ export interface IDiffResult {
   [key: string]: { _diffAct: DiffActionType } | undefined | IDiffResult;
 }
 /**
- *@example
+ * @description diffObj不会处理obj中的数组，因为不同类型的数组对比方式无法确定。例如[1,2,3]和[2,3,4]，是按位对比还是按成员对比效果是截然不同的，所以diffObj只处理对象
+ * @param processArray {function} - 可选参数，用于处理数组的对比，如果传入该参数，diffObj会调用该函数处理数组对比
+ * @example
  *diffObj({a:1,b:{name:"jac",age:18}}, {a:2,b:{name:"jac"},c:"da"})
  *--->
  *{
@@ -40,23 +42,10 @@ export function diffObj<T extends Record<string, any>>(
 ): IDiffResult {
   const result: IDiffResult = {};
 
-  function compareArrays(_from: T[], _to: T[], res: IDiffResult) {
-    for (let i = 0; i < _from.length; i++) {
-  
-    }
-
-    for (let i = _from.length; i < _to.length; i++) {
-      res[i] = { _diffAct: 'add' };
-    }
-  }
-
   function compareObjects(_from: T, _to: T, res: IDiffResult) {
     for (const key in _from) {
       if (_from.hasOwnProperty(key)) {
-        if (Array.isArray(_from[key]) && Array.isArray(_to[key])) {
-          console.log('ORM.M', key, _from[key], _to[key]);
-          
-        } else if (
+        if (
           typeof _from[key] === 'object' &&
           _from[key] !== null &&
           _to[key] !== undefined
@@ -87,5 +76,51 @@ export function diffObj<T extends Record<string, any>>(
   }
 
   compareObjects(from, to, result);
+  return result;
+}
+
+export function diffStringArray(
+  from: string[],
+  to: string[],
+): IDiffResult | undefined {
+  const result: IDiffResult = {};
+  const allKeys = new Set([...from, ...to]);
+  for (const key of allKeys) {
+    if (!from.includes(key) && to.includes(key)) {
+      result[key] = { _diffAct: 'add' };
+    } else if (from.includes(key) && !to.includes(key)) {
+      result[key] = { _diffAct: 'remove' };
+    }
+  }
+  if (Object.keys(result).length === 0) {
+    return undefined;
+  }
+  return result;
+}
+
+export function diffStringArrayRecord<T extends Record<string, string[]>>(
+  from: T,
+  to: T,
+): IDiffResult | undefined {
+  const result: IDiffResult = {};
+  const allKeys = new Set([...Object.keys(from), ...Object.keys(to)]);
+  for (const key of allKeys) {
+    const fromVal = from[key];
+    const toVal = to[key];
+
+    if (!fromVal && toVal) {
+      result[key] = { _diffAct: 'add' };
+    } else if (fromVal && !toVal) {
+      result[key] = { _diffAct: 'remove' };
+    } else if (fromVal && toVal) {
+      const diff = diffStringArray(fromVal, toVal);
+      if (diff) {
+        result[key] = diff;
+      }
+    }
+  }
+  if (Object.keys(result).length === 0) {
+    return undefined;
+  }
   return result;
 }

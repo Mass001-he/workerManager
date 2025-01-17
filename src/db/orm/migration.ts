@@ -1,5 +1,11 @@
 import { Emitter, Logger } from '../../utils';
-import { diffObj, isOK, type IDiffResult } from '../utils';
+import {
+  diffObj,
+  diffStringArray,
+  diffStringArrayRecord,
+  isOK,
+  type IDiffResult,
+} from '../utils';
 import type { ColumnParams } from './column';
 import type { SqliteWasmORM } from './orm';
 import type { IndexDesc, Table } from './table';
@@ -11,7 +17,7 @@ enum MetadataEnum {
 
 export type SnapshotTable = {
   columns: Record<string, ColumnParams>;
-  indexMap?: IndexDesc<any>;
+  indexMap?: IndexDesc;
 };
 
 export type SnapshotTableMap = {
@@ -116,10 +122,57 @@ export class Migration<T extends Table[]> {
     }
   }
 
+  private diffIndex(from: SnapshotTableMap, to: SnapshotTableMap) {
+    const diffIndexResult: IDiffResult = {};
+    const fromIndexKeys = Object.keys(from);
+    const toIndexKeys = Object.keys(to);
+    const mergeUniqueKeys = new Set([...fromIndexKeys, ...toIndexKeys]);
+
+    for (const tableName of mergeUniqueKeys) {
+      if (from[tableName] && to[tableName]) {
+        //只处理from和to都存在的表，新增表在创建时创建索引，不需要对比，删除表会删除索引
+        const indexDesc = from[tableName].indexMap;
+        const toIndexDesc = to[tableName].indexMap;
+        //index
+        const fromIndexKeys = indexDesc?.index ?? [];
+        const toIndexKeys = toIndexDesc?.index ?? [];
+        //unique index
+        const fromUniqueKeys = indexDesc?.unique ?? [];
+        const toUniqueKeys = toIndexDesc?.unique ?? [];
+        //composite index
+        const fromCompositeKeys = indexDesc?.composite ?? {};
+        const toCompositeKeys = toIndexDesc?.composite ?? {};
+        //diff result
+        const diffIndex = diffStringArray(fromIndexKeys, toIndexKeys);
+        const diffUnique = diffStringArray(fromUniqueKeys, toUniqueKeys);
+        const diffComposite = diffStringArrayRecord(
+          fromCompositeKeys,
+          toCompositeKeys,
+        );
+        diffIndexResult[tableName] = {};
+        if (diffIndex) {
+          diffIndexResult[tableName].index = diffIndex;
+        }
+        if (diffUnique) {
+          diffIndexResult[tableName].unique = diffUnique;
+        }
+        if (diffComposite) {
+          diffIndexResult[tableName].composite = diffComposite;
+        }
+        if (Object.keys(diffIndexResult[tableName]).length === 0) {
+          delete diffIndexResult[tableName];
+        }
+      }
+    }
+    return diffIndexResult;
+  }
+
   diff(fromSnapshot: SnapshotTableMap, toSnapshot: SnapshotTableMap) {
-    const diffResult = diffObj(fromSnapshot, toSnapshot);
-    this.logger.info('feat:Diff result:', diffResult).print();
-    this.generateSql(diffResult);
+    const diffColumnsResult = diffObj(fromSnapshot, toSnapshot);
+    const diffIndexResult = this.diffIndex(fromSnapshot, toSnapshot);
+    this.logger.info('feat:Diff result:', diffColumnsResult).print();
+    this.logger.info('feat:Diff index result:', diffIndexResult).print();
+    this.generateSql(diffColumnsResult);
   }
 
   generateSql(diffResult: IDiffResult) {

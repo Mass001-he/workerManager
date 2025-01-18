@@ -60,6 +60,10 @@ export abstract class ColumnType<Type = any> implements ColumnParams {
     return res;
   }
 
+  unwrap() {
+    return this;
+  }
+
   autoIncrement() {
     this._autoIncrement = true;
     return this;

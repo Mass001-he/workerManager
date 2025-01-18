@@ -56,11 +56,6 @@ export class Upgrade<T extends Table[]> {
   private logger = Logger.scope('ORM.Upgrade');
   private _onFirstRun = new Emitter();
   public onFirstRun = this._onFirstRun.event;
-  private _onWillUpgrade = new Emitter<{
-    from: UpdateMetadata;
-    to: UpdateMetadata;
-  }>();
-  public onWillUpgrade = this._onWillUpgrade.event;
 
   private _onNeedMigrate = new Emitter<{
     migrateMap: NeedMigrateMap;
@@ -71,12 +66,6 @@ export class Upgrade<T extends Table[]> {
   constructor(private orm: SqliteWasmORM<T>) {
     this.onFirstRun(() => {
       this.createTable();
-    });
-    this.onWillUpgrade((e) => {
-      this.logger
-        .info('Will Upgrading database from\n', e.from, '\n', e.to)
-        .print();
-      this.diff(e.from.snapshot, e.to.snapshot);
     });
   }
 
@@ -110,7 +99,7 @@ export class Upgrade<T extends Table[]> {
     return this.orm.version;
   }
 
-  public init() {
+  public init(): boolean {
     this.logger.info('Initializing metadata').print();
     //查询是否存在metadata表
     const sql = `SELECT name FROM sqlite_master WHERE type='table' AND name='metadata';`;
@@ -132,8 +121,9 @@ export class Upgrade<T extends Table[]> {
         )}');`,
       ]);
       this._onFirstRun.fire();
+      return true;
     } else {
-      this.check();
+      return this.check();
     }
   }
 
@@ -196,7 +186,7 @@ export class Upgrade<T extends Table[]> {
     const diffIndexResult = this.diffIndex(fromSnapshot, toSnapshot);
     this.logger.info('Diff result:', diffColumnsResult).print();
     this.logger.info('Diff index result:', diffIndexResult).print();
-    this.generateSql(diffColumnsResult, diffIndexResult);
+    return this.generateSql(diffColumnsResult, diffIndexResult);
   }
 
   generateSql(diffColumns: IDiffResult, diffIndex: IDiffResult) {
@@ -226,9 +216,10 @@ export class Upgrade<T extends Table[]> {
                   if (!column) {
                     throw new Error('fatal error: column not found');
                   }
+                  const columnType = column.unwrap();
                   if (
-                    column._required === true &&
-                    column._default === undefined
+                    columnType._required === true &&
+                    columnType._default === undefined
                   ) {
                     addMigration(tableName, {
                       diffResult: columns,
@@ -384,20 +375,26 @@ export class Upgrade<T extends Table[]> {
       }
     }
 
-    this.logger.info('needMigrateMap:', needMigrateMap).print();
     sqlList.push(
       `UPDATE metadata SET value='${this.version}' WHERE key='${MetadataEnum.VERSION}';`,
     );
+    sqlList.push(
+      `UPDATE metadata SET value='${JSON.stringify(
+        this.snapshotTable(),
+      )}' WHERE key='${MetadataEnum.SNAPSHOT}';`,
+    );
     sqlList.push('COMMIT;');
     if (Object.keys(needMigrateMap).length > 0) {
-      this.logger.warn('Upgrade Version failed').print();
+      this.logger.warn('Upgrade Version failed', needMigrateMap).print();
       this._onNeedMigrate.fire({
         migrateMap: needMigrateMap,
         restUpgradeSql: sqlList,
       });
+      return false;
     } else {
       this.orm.exec(sqlList.join('\n'));
       this.logger.info('Upgrade Version success').print();
+      return true;
     }
   }
 
@@ -416,7 +413,7 @@ export class Upgrade<T extends Table[]> {
       throw new Error('fatal error: Invalid version number');
     }
     if (metadataVersion === this.version) {
-      return;
+      return true;
     }
     if (metadataVersion < this.version) {
       const snapshot = this.orm.exec<any[]>(
@@ -426,17 +423,21 @@ export class Upgrade<T extends Table[]> {
         throw new Error('fatal error: Invalid snapshot');
       }
       const fromSnapshot = JSON.parse(snapshot);
-      this.logger.info('Upgrading database').print();
-      this._onWillUpgrade.fire({
-        from: {
-          version: metadataVersion,
-          snapshot: fromSnapshot,
-        },
-        to: {
-          version: this.version,
-          snapshot: this.snapshotTable(),
-        },
-      });
+      const from = {
+        version: metadataVersion,
+        snapshot: fromSnapshot,
+      };
+      const to = {
+        version: this.version,
+        snapshot: this.snapshotTable(),
+      };
+
+      this.logger
+        .info('Will Upgrading database from\n', from, '\n', to)
+        .print();
+      return this.diff(from.snapshot, to.snapshot);
     }
+
+    return false;
   }
 }

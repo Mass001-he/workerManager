@@ -54,7 +54,10 @@ export class SqliteWasmORM<T extends Table[]> {
       const isOpen = db.isOpen();
       if (isOpen) {
         this.logger.info('Database connection established').print();
-        this.upgrade.init();
+        const upgradeRes = this.upgrade.init();
+        if (upgradeRes === false) {
+          throw new Error('Database upgrade failed');
+        }
         return true;
       }
       return false;

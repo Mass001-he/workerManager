@@ -116,13 +116,7 @@ export class Table<
 
   genCreateSql() {
     const columns = Object.entries(this.columns).map(([name, column]) => {
-      let columnDesc = column;
-      //@ts-expect-error  ignore wrap
-      if (column['_column']) {
-        //@ts-expect-error
-        columnDesc = column.unwrap();
-      }
-
+      let columnDesc = column.unwrap();
       const sql = columnDesc.genCreateSql();
       sql.unshift(name);
       return sql.join(' ');

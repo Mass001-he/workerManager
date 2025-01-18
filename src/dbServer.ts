@@ -36,10 +36,11 @@ const version2 = {
     table(
       'user',
       {
-        name: text(),
+        name: text().optional(),
         age: integer().max(100),
         profile: text(),
-        nickname: text(),
+        avatar: text(),
+        nickname: text().optional(),
       },
       () => {
         return {

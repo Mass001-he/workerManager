@@ -41,19 +41,17 @@ const version2 = {
         profile: text(),
         avatar: text(),
         nickname: text().optional(),
+        abc: integer().default(1),
       },
       () => {
         return {
           index: ['age'],
-          composite: {
-            name_nickname: ['name', 'nickname'],
-          },
         };
       },
     ),
     postTable,
   ],
-  version: 2,
+  version: 4,
 };
 
 const orm = new SqliteWasmORM(version2);

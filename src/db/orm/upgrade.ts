@@ -393,7 +393,7 @@ export class Upgrade<T extends Table[]> {
       return false;
     } else {
       this.logger.info('Upgrade SQL:\n', sqlList).print();
-      const res = this.orm.exec(sqlList.join('\n'));
+      this.orm.exec(sqlList.join('\n'));
       this.logger.info('Upgrade Version success').print();
       return true;
     }

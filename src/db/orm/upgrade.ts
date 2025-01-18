@@ -229,7 +229,7 @@ export class Upgrade<T extends Table[]> {
                     continue;
                   }
                   sqlList.push(
-                    `ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${column.genCreateSql().join(' ')};`,
+                    `ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${column.unwrap().genCreateSql().join(' ')};`,
                   );
                 }
                 break;
@@ -392,7 +392,8 @@ export class Upgrade<T extends Table[]> {
       });
       return false;
     } else {
-      this.orm.exec(sqlList.join('\n'));
+      this.logger.info('Upgrade SQL:\n', sqlList).print();
+      const res = this.orm.exec(sqlList.join('\n'));
       this.logger.info('Upgrade Version success').print();
       return true;
     }

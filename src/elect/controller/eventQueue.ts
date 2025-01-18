@@ -4,7 +4,7 @@ export interface EventQueueOptions<T> {
 }
 
 export class EventQueue<T = any> {
-  static MAX_CONCURRENCY = 5;
+  static MAX_CONCURRENCY = 10;
   /**
    * 修改并发数
    */

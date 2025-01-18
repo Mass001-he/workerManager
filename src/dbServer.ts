@@ -7,17 +7,12 @@ const { text, integer } = col;
 const userTable = table(
   'user',
   {
-    name: text().optional(),
+    name: text(),
     age: integer().max(100),
-    profile: text(),
-    avatar: text(),
   },
   () => {
     return {
-      index: ['name'],
-      composite: {
-        name_age: ['name', 'age'],
-      },
+      unique: ['name'],
     };
   },
 );
@@ -36,22 +31,22 @@ const version2 = {
     table(
       'user',
       {
-        name: text().optional(),
+        name: text(),
         age: integer().max(100),
-        profile: text(),
-        avatar: text(),
+        profile: text().default('123'),
+        avatar: text().optional(),
         nickname: text().optional(),
         abc: integer().default(1),
       },
       () => {
         return {
-          index: ['age'],
+          unique: ['name'],
         };
       },
     ),
     postTable,
   ],
-  version: 4,
+  version: 2,
 };
 
 const orm = new SqliteWasmORM(version2);
@@ -65,6 +60,7 @@ setTimeout(() => {
       age: i,
     });
   }
+
   // userRepo.insertMany(users);
 
   // userRepo.updateMany(

@@ -2,7 +2,7 @@ import type { OpfsSAHPoolDatabase, SAHPoolUtil } from '@sqlite.org/sqlite-wasm';
 import type { Table } from './table';
 import { Logger } from '../../utils';
 import { Repository } from './repository';
-import { Migration } from './migration';
+import { Upgrade } from './upgrade';
 import initSqlite3 from '@sqlite.org/sqlite-wasm';
 
 export interface SqliteWasmORMOptions<T extends Table[]> {
@@ -25,7 +25,7 @@ export class SqliteWasmORM<T extends Table[]> {
   private logger: Logger = Logger.scope('ORM');
   public version: number;
   public tables: T;
-  public migration: Migration<T>;
+  public upgrade: Upgrade<T>;
 
   constructor(options: SqliteWasmORMOptions<T>) {
     if (isPositiveInt(options.version) === false) {
@@ -33,7 +33,7 @@ export class SqliteWasmORM<T extends Table[]> {
     }
     this.version = options.version;
     this.tables = options.tables;
-    this.migration = new Migration(this);
+    this.upgrade = new Upgrade(this);
   }
 
   async connect(name: string) {
@@ -54,7 +54,7 @@ export class SqliteWasmORM<T extends Table[]> {
       const isOpen = db.isOpen();
       if (isOpen) {
         this.logger.info('Database connection established').print();
-        this.migration.init();
+        this.upgrade.init();
         return true;
       }
       return false;

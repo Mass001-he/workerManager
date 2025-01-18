@@ -15,6 +15,15 @@ enum MetadataEnum {
   SNAPSHOT = 'snapshot',
 }
 
+export type NeedMigrateMap = Record<
+  string,
+  {
+    diffResult: IDiffResult;
+    info: string;
+    needMigrateKey: string;
+  }[]
+>;
+
 export type SnapshotTable = {
   columns: Record<string, ColumnParams>;
   indexMap?: IndexDesc;
@@ -43,8 +52,8 @@ export interface DiffTableMap {
   };
 }
 
-export class Migration<T extends Table[]> {
-  private logger = Logger.scope('ORM.Migration');
+export class Upgrade<T extends Table[]> {
+  private logger = Logger.scope('ORM.Upgrade');
   private _onFirstRun = new Emitter();
   public onFirstRun = this._onFirstRun.event;
   private _onWillUpgrade = new Emitter<{
@@ -52,6 +61,12 @@ export class Migration<T extends Table[]> {
     to: UpdateMetadata;
   }>();
   public onWillUpgrade = this._onWillUpgrade.event;
+
+  private _onNeedMigrate = new Emitter<{
+    migrateMap: NeedMigrateMap;
+    restUpgradeSql: string[];
+  }>();
+  public onNeedMigrate = this._onNeedMigrate.event;
 
   constructor(private orm: SqliteWasmORM<T>) {
     this.onFirstRun(() => {
@@ -179,15 +194,25 @@ export class Migration<T extends Table[]> {
       },
     );
     const diffIndexResult = this.diffIndex(fromSnapshot, toSnapshot);
-    this.logger.info('feat:Diff result:', diffColumnsResult).print();
-    this.logger.info('feat:Diff index result:', diffIndexResult).print();
+    this.logger.info('Diff result:', diffColumnsResult).print();
+    this.logger.info('Diff index result:', diffIndexResult).print();
     this.generateSql(diffColumnsResult, diffIndexResult);
   }
 
   generateSql(diffColumns: IDiffResult, diffIndex: IDiffResult) {
     const sqlList: string[] = ['BEGIN TRANSACTION;'];
+    const needMigrateMap: NeedMigrateMap = {};
+    const addMigration = (
+      tableName: string,
+      obj: { diffResult: IDiffResult; info: string; needMigrateKey: string },
+    ) => {
+      if (needMigrateMap[tableName]) {
+        needMigrateMap[tableName].push(obj);
+      } else {
+        needMigrateMap[tableName] = [obj];
+      }
+    };
     const handleColumns = (tableName: string, columns: IDiffResult) => {
-      this.logger.info('feat: handleColumns:', tableName, columns).print();
       if (columns) {
         for (const columnName of Object.keys(columns)) {
           if (columns[columnName]?._diffAct) {
@@ -205,9 +230,12 @@ export class Migration<T extends Table[]> {
                     column._required === true &&
                     column._default === undefined
                   ) {
-                    throw new Error(
-                      'fatal error:add column error ,Mandatory fields were added or modified, but no default values were set',
-                    );
+                    addMigration(tableName, {
+                      diffResult: columns,
+                      info: `Column ${columnName} is required but has no default value`,
+                      needMigrateKey: columnName,
+                    });
+                    continue;
                   }
                   sqlList.push(
                     `ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${column.genCreateSql().join(' ')};`,
@@ -215,13 +243,19 @@ export class Migration<T extends Table[]> {
                 }
                 break;
               case 'update':
-                throw new Error(
-                  `fatal error: update column not support,SQLite does not support direct modification of existing field constraints, but can only be implemented indirectly by rebuilding the table.`,
-                );
+                addMigration(tableName, {
+                  diffResult: columns,
+                  info: `fatal error: update column not support,SQLite does not support direct modification of existing field constraints, but can only be implemented indirectly by rebuilding the table.`,
+                  needMigrateKey: columnName,
+                });
+                continue;
               case 'remove':
-                throw new Error(
-                  `fatal error: remove column not support,SQLite does not support direct modification of existing field constraints, but can only be implemented indirectly by rebuilding the table.`,
-                );
+                addMigration(tableName, {
+                  diffResult: columns,
+                  info: `fatal error: remove column not support,SQLite does not support direct modification of existing field constraints, but can only be implemented indirectly by rebuilding the table.`,
+                  needMigrateKey: columnName,
+                });
+                continue;
               default:
                 break;
             }
@@ -271,6 +305,12 @@ export class Migration<T extends Table[]> {
                 );
                 break;
               case 'update':
+                addMigration(tableName, {
+                  diffResult: indexDiff.index,
+                  info: `fatal error: for-of Object.keys(indexDiff.index): Invalid diff act`,
+                  needMigrateKey: indexName,
+                });
+                continue;
               default:
                 throw new Error(
                   'fatal error: for-of Object.keys(indexDiff.index): Invalid diff act',
@@ -295,6 +335,12 @@ export class Migration<T extends Table[]> {
                 );
                 break;
               case 'update':
+                addMigration(tableName, {
+                  diffResult: indexDiff.unique,
+                  info: `fatal error: for-of Object.keys(indexDiff.unique): Invalid diff act`,
+                  needMigrateKey: indexName,
+                });
+                continue;
               default:
                 throw new Error(
                   'fatal error: for-of Object.keys(indexDiff.unique): Invalid diff act',
@@ -322,6 +368,12 @@ export class Migration<T extends Table[]> {
                 );
                 break;
               case 'update':
+                addMigration(tableName, {
+                  diffResult: indexDiff.composite,
+                  info: `fatal error: for-of Object.keys(indexDiff.composite): Invalid diff act`,
+                  needMigrateKey: indexName,
+                });
+                continue;
               default:
                 throw new Error(
                   'fatal error: for-of Object.keys(indexDiff.composite): Invalid diff act',
@@ -332,12 +384,21 @@ export class Migration<T extends Table[]> {
       }
     }
 
+    this.logger.info('needMigrateMap:', needMigrateMap).print();
     sqlList.push(
       `UPDATE metadata SET value='${this.version}' WHERE key='${MetadataEnum.VERSION}';`,
     );
     sqlList.push('COMMIT;');
-
-    this.logger.info('feat: sqlList:', sqlList).print();
+    if (Object.keys(needMigrateMap).length > 0) {
+      this.logger.warn('Upgrade Version failed').print();
+      this._onNeedMigrate.fire({
+        migrateMap: needMigrateMap,
+        restUpgradeSql: sqlList,
+      });
+    } else {
+      this.orm.exec(sqlList.join('\n'));
+      this.logger.info('Upgrade Version success').print();
+    }
   }
 
   private check() {

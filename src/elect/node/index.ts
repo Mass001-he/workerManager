@@ -1,6 +1,6 @@
-import { Emitter, Logger } from '../../utils';
+import { Disposer, Emitter, Logger } from '../../utils';
 import { Service } from './service';
-import { SchedulerAction, TabAction } from '../controller/constant';
+import { NodeAction } from '../controller/constant';
 import {
   DispatchRequestPayload,
   DispatchResponsePayload,
@@ -38,72 +38,33 @@ export class Node {
   private _onBroadcast = new Emitter<BroadcastPayload>();
   onBroadcast = this._onBroadcast.event;
 
-  private _onElection = new Emitter<Service>();
-  private onElection = this._onElection.event;
-
-  static instance: Node | null = null;
-  private static instancePromise: Promise<Node> | null = null;
-
   private logger = Logger.scope('Node');
-
+  private disposer = new Disposer();
   service: Service | undefined;
 
   #isLeader: boolean;
   get isLeader() {
     return this.#isLeader;
   }
-  #tabId!: string;
-  get tabId() {
-    return this.#tabId;
-  }
   private _cacheTask: any[];
-  private tabIdCounter = new Counter();
+  private reqIdCounter = new Counter();
   private options: NodeOptions;
 
-  static async create(sharedWorker: SharedWorker, options: NodeOptions = {}) {
-    if (Node.instance) {
-      return Node.instance;
-    }
-    if (Node.instancePromise) {
-      return Node.instancePromise;
-    }
-    Node.instancePromise = new Promise<Node>((resolve) => {
-      const ins = new Node(sharedWorker, options);
-      const handle = (e: any) => {
-        const { type, data } = e.data as PayloadLike;
-        if (
-          type === MessageType.Notice &&
-          data.action === TabAction.Connected
-        ) {
-          ins.logger.info('Connected', data).print();
-          ins.#tabId = data.id;
-          ins.campaign();
-          Node.instance = ins;
-          Node.instancePromise = null;
-          resolve(ins);
-        }
-        ins.port.removeEventListener('message', handle);
-      };
-      ins.port.addEventListener('message', handle);
-      ins.init();
-    });
-    return Node.instancePromise;
-  }
-
-  private constructor(sharedWorker: SharedWorker, options: NodeOptions = {}) {
+  constructor(sharedWorker: SharedWorker, options: NodeOptions = {}) {
     this.logger.info('Created').print();
     this.options = { ...DefaultNodeOptions, ...options };
     this.promiseMap = new Map();
     this._cacheTask = [];
     this.#isLeader = false;
     this.worker = sharedWorker;
+    this.init();
   }
 
   private init = () => {
     window.onbeforeunload = () => {
       this.destroy();
     };
-    document.addEventListener('visibilitychange', () => {
+    const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
         setTimeout(() => {
           if (document.visibilityState === 'visible') {
@@ -111,44 +72,52 @@ export class Node {
           }
         }, DelayMs);
       }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    this.disposer.add(() => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     });
     this.register();
     this.port.start();
 
     this.onNotice((e: NoticePayload) => {
-      if (e.data.action === TabAction.Connected) {
-        return;
-        //链接的处理在create的静态方法中
-      }
       this.logger.info('onNotice', e).print();
-
-      if (e.data.action === TabAction.LeaderChange) {
-        // leader 变化，1. 需要重新 初始化 createService 2. 如果变化前当前tab是leader，需要 注销 service
-        const currentLeader = e.data.id;
-        if (this.#tabId === currentLeader) {
-          this.#isLeader = true;
-          this.service = new Service();
-          this.handleTasks(this._cacheTask);
-          this._cacheTask = [];
-          this._onElection.fire(this.service);
-        } else {
+      switch (e.data.action) {
+        case NodeAction.LeaderChange:
           this.#isLeader = false;
           this.service?.destroy();
-        }
+          break;
+        case NodeAction.CompletionToElection:
+          this.completionToElection();
+          break;
+        default:
+          this.logger.error('unknown notice', e).print();
+          break;
       }
     });
-
-    this.onElection((service) => {
-      this.options.onElection?.(service);
-    });
   };
+
+  async completionToElection() {
+    this.logger.info('completionToElection').print();
+    this.#isLeader = true;
+    this.service = new Service();
+    this.handleTasks(this._cacheTask);
+    this._cacheTask = [];
+    await this.options.onElection?.(this.service);
+    this.post({
+      data: {
+        action: NodeAction.UpperReady,
+      },
+    });
+    this.logger.info('Election success').print();
+  }
 
   private register() {
     this.port.addEventListener('message', (ev) => {
       const { type } = ev.data as PayloadLike;
 
       switch (type) {
-        case MessageType.Notice:
+        case MessageType.SchedulerNotice:
           this._onNotice.fire(ev.data as NoticePayload);
           break;
         case MessageType.Response:
@@ -170,10 +139,11 @@ export class Node {
       this.logger.error('Message port error:', error).print();
     };
   }
+
   private campaign = () => {
     this.post({
       data: {
-        action: SchedulerAction.Campaign,
+        action: NodeAction.Campaign,
       },
     });
   };
@@ -207,6 +177,7 @@ export class Node {
           data: res,
           type: MessageType.DispatchResponse,
           reqId: task.reqId,
+          targetNodeId: task.nodeId,
           success: true,
         };
         this.logger
@@ -215,6 +186,7 @@ export class Node {
             params,
             res,
             reqId: task.reqId,
+            nodeId: task.nodeId,
           })
           .print();
         this.post(_payload);
@@ -225,6 +197,7 @@ export class Node {
           success: false,
           type: MessageType.DispatchResponse,
           reqId: task.reqId,
+          targetNodeId: task.nodeId,
         };
         this.logger
           .error('handleDispatch', {
@@ -263,7 +236,7 @@ export class Node {
       _payload.reqId = this.generateReqId();
     }
     if (payload.type === undefined) {
-      _payload.type = MessageType.NoResRequest;
+      _payload.type = MessageType.NodeNotice;
     }
     if (log) {
       this.logger.info('Post', _payload).print();
@@ -317,21 +290,21 @@ export class Node {
   };
 
   private generateReqId() {
-    return `${this.#tabId}_${this.tabIdCounter.next()}`;
+    return `${this.reqIdCounter.next()}`;
   }
 
   destroy = () => {
     this.post({
       data: {
-        action: SchedulerAction.Destroy,
+        action: NodeAction.Destroy,
       },
     });
+    this.disposer.dispose();
     this.service?.destroy();
     this.port?.close();
     this.promiseMap.clear();
     this._onNotice.dispose();
     this._onBroadcast.dispose();
-    this._onElection.dispose();
     this._cacheTask = [];
   };
 }

@@ -1,5 +1,5 @@
-export * from './event'
-export * from './logger'
+export * from './event';
+export * from './logger';
 
 export class Counter {
   count = 0;
@@ -11,3 +11,13 @@ export class Counter {
   }
 }
 
+export class Disposer {
+  private _disposes: (() => void)[] = [];
+  add(dispose: () => void) {
+    this._disposes.push(dispose);
+  }
+  dispose() {
+    this._disposes.forEach((dispose) => dispose());
+    this._disposes = [];
+  }
+}

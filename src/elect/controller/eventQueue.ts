@@ -1,6 +1,6 @@
 import { Emitter, Logger } from '../../utils';
 export interface EventQueueOptions<T> {
-  filter: (item: Partial<T>, task: T) => boolean;
+  filter: (item: T, task: T) => boolean;
 }
 
 export class EventQueue<T = any> {
@@ -61,7 +61,7 @@ export class EventQueue<T = any> {
   /**
    * @description 完成任务
    */
-  public completeTask(item: Partial<T>) {
+  public completeTask(item: T) {
     const idx = this.activeTasks.findIndex((t) => this.options.filter(item, t));
     if (idx > -1) {
       this.activeTasks.splice(idx, 1);

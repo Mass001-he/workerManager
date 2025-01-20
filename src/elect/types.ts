@@ -1,9 +1,9 @@
-import type { SchedulerAction, TabAction } from './controller/constant';
+import type { NodeAction } from './controller/constant';
 import type { Service } from './node/service';
 
 export enum MessageType {
   /** 不需要调度器响应的请求 */
-  NoResRequest = 'NoResRequest',
+  NodeNotice = 'NodeNotice',
   /** 请求调度器服务 */
   Request = 'Request',
   /** 响应调度器请求 */
@@ -13,7 +13,7 @@ export enum MessageType {
   /** 执行者响应调度器指派请求 */
   DispatchResponse = 'DispatchResponse',
   /** 调度器通知 */
-  Notice = 'Notice',
+  SchedulerNotice = 'Notice',
   /** 广播 */
   Broadcast = 'Broadcast',
 }
@@ -37,10 +37,10 @@ export interface BaseResponsePayload {
 
 export interface NoticePayload {
   data: {
-    action: TabAction;
+    action: NodeAction;
     [index: string]: any;
   };
-  type: MessageType.Notice;
+  type: MessageType.SchedulerNotice;
 }
 
 export interface BroadcastPayload<T extends Record<string, any> = any> {
@@ -56,6 +56,7 @@ export interface DispatchRequestPayload extends BaseRequestPayload {
 }
 
 export interface DispatchResponsePayload<T = any> extends BaseResponsePayload {
+  targetNodeId: string;
   reqId: string;
   data: T;
   type: MessageType.DispatchResponse;
@@ -76,7 +77,11 @@ export interface ResponsePayload<T = any> extends BaseResponsePayload {
   data: T;
 }
 
-export interface NoResRequestPayload extends BaseRequestPayload {}
+export interface NodeNoticePayload extends BaseRequestPayload {
+  data: {
+    action: NodeAction;
+  };
+}
 
 //@ts-ignore
 export interface SharedWorkerGlobalScope extends EventTarget {
@@ -88,7 +93,7 @@ export interface SharedWorkerGlobalScope extends EventTarget {
   ): void;
 }
 
-export interface TabDescriptor {
+export interface TabNodeDescriptor {
   id: string;
   prot: MessagePort;
 }
@@ -97,7 +102,7 @@ export interface PayloadOptions {
   reqId?: string;
   type?: MessageType;
   data?: {
-    action?: SchedulerAction;
+    action?: NodeAction;
     [key: string]: any;
   };
   [key: string]: any;
@@ -110,5 +115,5 @@ export interface NodeOptions {
    */
   broadcastSelf?: boolean;
 
-  onElection?: (service: Service) => void;
+  onElection?: (service: Service) => void | Promise<void>;
 }

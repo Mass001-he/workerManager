@@ -4,23 +4,23 @@ import {
   type SharedWorkerGlobalScope,
   type RequestPayload,
   type DispatchResponsePayload,
-  type NoResRequestPayload,
   type DispatchRequestPayload,
+  type NodeNoticePayload,
 } from '../types';
-import { SchedulerAction, TabAction } from './constant';
+import { NodeAction } from './constant';
 import { EventQueue } from './eventQueue';
 import { Council } from './council';
-import { TabManager } from './tabManager';
+import { TabNodeManager } from './nodeManager';
 import { Prettier } from '../../utils.type';
 
 declare var self: SharedWorkerGlobalScope;
 declare var globalThis: typeof self;
 export type SchedulerEventQueueTask = Prettier<
-  RequestPayload & { tabId: string }
+  RequestPayload & { nodeId: string }
 >;
 
 export class Scheduler {
-  private tabManager: TabManager;
+  private nodeManager: TabNodeManager;
   private council: Council;
   private eventQueue: EventQueue<SchedulerEventQueueTask>;
   private destroyFn: Array<() => void> = [];
@@ -29,36 +29,44 @@ export class Scheduler {
 
   constructor() {
     this.logger.info('Created').print();
-    this.tabManager = new TabManager();
+    this.nodeManager = new TabNodeManager();
     this.council = new Council();
     this.eventQueue = new EventQueue({
       filter(item, task) {
-        return item.reqId === task.reqId;
+        const itemUniqueId = item.nodeId + item.reqId;
+        const taskUniqueId = task.nodeId + task.reqId;
+
+        return itemUniqueId === taskUniqueId;
       },
     });
     this.register();
   }
 
   private onDispatchResponse = (
-    tabId: string,
+    nodeId: string,
     e: MessageEvent<DispatchResponsePayload>,
   ) => {
     const payload = e.data;
-    this.logger.info(`onDispatchResponse,tabId:${tabId}`, payload).print();
-    const reqId = payload.reqId;
-    const task = this.dispatchMap.get(reqId);
+    this.logger
+      .info(
+        `onDispatchResponse,handler nodeId: ${nodeId},targetId:${payload.targetNodeId}`,
+        payload,
+      )
+      .print();
+    const uniqueId = payload.targetNodeId + payload.reqId;
+    const task = this.dispatchMap.get(uniqueId);
     if (task === undefined) {
-      this.logger.warn('task not found', reqId, this.dispatchMap).print();
+      this.logger.warn('task not found', uniqueId, this.dispatchMap).print();
       return;
     }
-    const tab = this.tabManager.getTabById(task.tabId);
-    if (tab === undefined) {
+    const node = this.nodeManager.getNodeById(task.nodeId);
+    if (node === undefined) {
       this.logger
         .warn('The responder was not found', task, payload, '')
         .print();
     } else {
-      this.tabManager.postMessage({
-        tab,
+      this.nodeManager.postMessage({
+        node,
         message: {
           ...payload,
           type: MessageType.Response,
@@ -66,30 +74,33 @@ export class Scheduler {
       });
     }
 
-    this.eventQueue.completeTask({
-      reqId: payload.reqId,
-    });
-    this.dispatchMap.delete(reqId);
+    this.eventQueue.completeTask(task);
+    this.dispatchMap.delete(uniqueId);
   };
 
-  private onNoResRequest = (
-    tabId: string,
-    e: MessageEvent<NoResRequestPayload>,
+  private onNodeNotice = (
+    nodeId: string,
+    e: MessageEvent<NodeNoticePayload>,
   ) => {
-    this.logger.info('onNoResRequest', {
-      tabId,
+    this.logger.info('onNodeNotice', {
+      nodeId,
       payload: e.data,
     });
     switch (e.data.data.action) {
-      case SchedulerAction.Campaign:
-        this.council.campaign(tabId);
+      case NodeAction.Campaign:
+        this.council.campaign(nodeId);
         break;
-      case SchedulerAction.Destroy:
-        if (tabId === this.council.leader && !!tabId) {
+      case NodeAction.Destroy:
+        if (nodeId === this.council.leader && !!nodeId) {
           this.council.abdicate();
         }
-        this.tabManager.removeTab(tabId);
+        this.nodeManager.removeTab(nodeId);
+      case NodeAction.UpperReady:
+        this.eventQueue.reActivation();
+        this.nodeManager.broadcastNotice(NodeAction.LeaderChange, [nodeId]);
+        break;
       default:
+        this.logger.error('unknown action', e.data.data.action).print();
         break;
     }
   };
@@ -97,36 +108,34 @@ export class Scheduler {
   private registerTabManager() {
     this.logger.info('register tab manager').print();
 
-    this.tabManager.onMessage((message) => {
-      const { event, tabId } = message;
+    this.nodeManager.onMessage((message) => {
+      this.logger.info('onMessage', message).print();
+      const { event, nodeId } = message;
       const payload = event.data;
       switch (payload.type) {
         case MessageType.Request:
           this.eventQueue.enqueue({
             ...(payload as RequestPayload),
-            tabId,
+            nodeId,
           });
           break;
         case MessageType.Broadcast:
-          this.tabManager.broadcastMessage(
+          this.nodeManager.broadcastMessage(
             {
               ...payload.data,
-              sender: tabId,
+              sender: nodeId,
             },
-            payload.toSelf ? undefined : [tabId],
+            payload.toSelf ? undefined : [nodeId],
           );
           break;
         case MessageType.DispatchResponse:
           this.onDispatchResponse(
-            tabId,
+            nodeId,
             event as MessageEvent<DispatchResponsePayload>,
           );
           break;
-        case MessageType.NoResRequest:
-          this.onNoResRequest(
-            tabId,
-            event as MessageEvent<NoResRequestPayload>,
-          );
+        case MessageType.NodeNotice:
+          this.onNodeNotice(nodeId, event as MessageEvent<NodeNoticePayload>);
           break;
         default:
           this.logger.warn('unknown message', message).print();
@@ -134,22 +143,14 @@ export class Scheduler {
       }
     });
 
-    this.tabManager.onTabAdded((e) => {
-      const tab = this.tabManager.getTabById(e.id);
-      this.tabManager.postMessage({
-        tab,
-        message: {
-          type: MessageType.Notice,
-          data: {
-            action: TabAction.Connected,
-            id: e.id,
-          },
-        },
-      });
+    this.nodeManager.onNodeAdded((e) => {
+      if (this.council.leader === undefined) {
+        this.council.campaign(e.id);
+      }
     });
 
     this.destroyFn.push(() => {
-      this.tabManager.destroy();
+      this.nodeManager.destroy();
     });
   }
 
@@ -158,7 +159,7 @@ export class Scheduler {
     const handleConnect = (e: MessageEvent) => {
       const port = e.ports[0];
       port.start();
-      this.tabManager.addTab(port);
+      this.nodeManager.addTab(port);
     };
 
     globalThis.addEventListener('connect', handleConnect);
@@ -176,14 +177,17 @@ export class Scheduler {
   private registerCouncil() {
     this.logger.info('register council').print();
     this.council.onNoCandidate(() => {
-      this.council.campaign(this.tabManager.tabs[0].id);
+      this.council.campaign(this.nodeManager.nodes[0].id);
     });
-    this.council.onLeaderChange(() => {
-      this.tabManager.broadcastNotice({
-        action: TabAction.LeaderChange,
-        id: this.council.leader,
+    this.council.onCompletionToElection((data) => {
+      const node = this.nodeManager.getNodeById(data.candidate);
+      node.prot.postMessage({
+        type: MessageType.SchedulerNotice,
+        data: {
+          action: NodeAction.CompletionToElection,
+          id: data.candidate,
+        },
       });
-      this.eventQueue.reActivation();
     });
     this.destroyFn.push(() => {
       this.council.destroy();
@@ -199,7 +203,7 @@ export class Scheduler {
         this.council.electLeader();
         return;
       }
-      const leader = this.tabManager.getTabById(this.council.leader);
+      const leader = this.nodeManager.getNodeById(this.council.leader);
       if (leader === undefined) {
         this.logger.warn('leader not found', tasks, 're elect leader').print();
         this.council.electLeader();
@@ -207,13 +211,14 @@ export class Scheduler {
       }
 
       tasks.forEach((task) => {
-        if (this.dispatchMap.has(task.reqId) === false) {
-          this.dispatchMap.set(task.reqId, task);
+        const uniqueId = task.nodeId + task.reqId;
+        if (this.dispatchMap.has(uniqueId) === false) {
+          this.dispatchMap.set(uniqueId, task);
         }
       });
 
-      this.tabManager.postMessage<DispatchRequestPayload>({
-        tab: leader,
+      this.nodeManager.postMessage<DispatchRequestPayload>({
+        node: leader,
         message: {
           type: MessageType.DispatchRequest,
           data: {

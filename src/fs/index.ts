@@ -16,7 +16,7 @@ export class OPFS {
     const opfs = new OPFS(opfsOperator);
     return opfs;
   }
-  
+
   private constructor(operator: OPFSOperator) {
     this.opfsOperator = operator;
   }
@@ -69,7 +69,6 @@ export class OPFS {
       return this.opfsOperator.writeFile(path, _data, options);
     } else if (data instanceof Blob) {
       const _data = await data.arrayBuffer();
-      debugger;
       return this.opfsOperator.writeFile(path, _data, options);
     } else {
       return this.opfsOperator.writeFile(path, data, options);

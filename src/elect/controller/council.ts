@@ -16,19 +16,19 @@ export class Council {
   public campaigners: string[] = [];
   private logger = Logger.scope('Council');
 
-  private _onLeaderChange = new Emitter<{
-    leader: string;
+  private _onCompletionElect = new Emitter<{
+    candidate: string;
     oldLeader?: string;
   }>();
   private _onNoCandidate = new Emitter<void>();
-  public onLeaderChange = this._onLeaderChange.event;
+  public onCompletionToElection = this._onCompletionElect.event;
   public onNoCandidate = this._onNoCandidate.event;
   private _timer: any | undefined;
 
   constructor() {
     this.logger.info('Created').print();
-    this.onLeaderChange((e) => {
-      this.logger.info(`Leader change:`, e).print();
+    this.onCompletionToElection((e) => {
+      this.logger.info(`Completion of Election:`, e).print();
     });
     this.onNoCandidate(() => {
       this.logger.info('No candidate').print();
@@ -39,10 +39,10 @@ export class Council {
     this.logger.info(`Change leader: ${leader}`).print();
 
     this.leader = leader;
-    //选举成功后,候选人清空，如果leader被消除，则会触发onNoCandidate事件，由上层指派新的leader
+    //选举成功后，候选人清空，如果leader被消除，则会触发onNoCandidate事件，由上层指派新的leader
     this.campaigners = [];
 
-    this._onLeaderChange.fire({ leader: this.leader });
+    this._onCompletionElect.fire({ candidate: this.leader });
   }
 
   /**
@@ -109,25 +109,23 @@ export class Council {
     if (this.leader === candidate && this.campaigners.length === 0) {
       return;
     }
+    this.logger.info(`Campaign:`, candidate).print();
     if (candidate === undefined) {
-      this.logger.error(`Campaign:`, candidate).print();
       return;
     }
-    this.logger.info(`Campaign:`, candidate).print();
     const idx = this.campaigners.findIndex((id) => id === candidate);
     if (idx !== -1) {
       this.campaigners.splice(idx, 1);
     }
     if (this.leader) {
-      if (this.leader === candidate) {
-        this.reElected();
-      } else {
-        this.campaigners.push(candidate);
-        this.tenureCountdown();
-        this.logger
-          .info(`tenureCountdown Campaigners:`, this.campaigners)
-          .print();
-      }
+      this.campaigners.push(candidate);
+      // if (this.leader === candidate) {
+      //   this.reElected();
+      // } else {
+      //   this.campaigners.push(candidate);
+      //   this.tenureCountdown();
+      //   this.logger.info(`Campaigners:`, this.campaigners).print();
+      // }
     } else {
       this.changeLeader(candidate);
     }
@@ -135,7 +133,7 @@ export class Council {
 
   public destroy() {
     this.logger.info('Council destroyed').print();
-    this._onLeaderChange.dispose();
+    this._onCompletionElect.dispose();
     this._onNoCandidate.dispose();
     this._timer = undefined;
     clearTimeout(this._timer);

@@ -10,32 +10,29 @@ const sharedWorker = new SharedWorker(new URL('./worker.ts', import.meta.url), {
 });
 
 const App = () => {
-  const [worker, setWorker] = useState<Node | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [node, setNode] = useState<Node | null>(null);
   const [value, setValue] = useState(''); // 删除ID
 
   useEffect(() => {
     const boot = async () => {
-      const node = await Node.create(sharedWorker, {
+      const node = new Node(sharedWorker, {
         onElection: async (service: Service) => {
           await registerService(service);
-          setLoading(true);
         },
       });
-      setWorker(node);
+
+      setNode(node);
     };
     boot();
 
     return () => {
-      worker?.destroy();
+      node?.destroy();
     };
   }, []);
 
   const sendMessage = async () => {
     try {
-      const res = await worker?.request('return1', {
-        data: 'data',
-      });
+      const res = await node?.request('retInc1', 1);
 
       console.log('res===>', res);
     } catch (error) {
@@ -44,14 +41,14 @@ const App = () => {
   };
 
   const broadcast = () => {
-    worker?.broadcast({
+    node?.broadcast({
       type: '更新会话详情',
       ids: [1, 2, 3],
     });
   };
 
   const watchBroadcast = () => {
-    worker?.onBroadcast((data) => {
+    node?.onBroadcast((data) => {
       console.log('watchBroadcast', data);
     });
   };
@@ -61,7 +58,7 @@ const App = () => {
       return alert('请输入ID');
     }
     try {
-      const res = await worker?.request('deleteMsg', {
+      const res = await node?.request('deleteMsg', {
         data: {
           deleteName: value,
           isHardDelete,
@@ -73,9 +70,6 @@ const App = () => {
     }
   };
 
-  if (!loading) {
-    return null;
-  }
   return (
     <div
       style={{
@@ -106,12 +100,12 @@ const App = () => {
           value={value}
           onChange={(e) => setValue(e.target.value)}
         />
-        {/* <button onClick={sendMessage}>有返回值发送消息 </button>
+        <button onClick={sendMessage}>有返回值发送消息 </button>
         <button onClick={broadcast}>广播</button>
-        <button onClick={watchBroadcast}>监听广播</button> */}
+        <button onClick={watchBroadcast}>监听广播</button>
       </div>
 
-      <div
+      {/*  <div
         style={{
           width: '100%',
           height: 0,
@@ -127,7 +121,7 @@ const App = () => {
             return res?.data;
           }}
         />
-      </div>
+      </div> */}
     </div>
   );
 };

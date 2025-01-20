@@ -1,9 +1,7 @@
-export enum TabAction {
-  Connected = 'connect',
-  LeaderChange = 'leaderChange',
-}
-
-export enum SchedulerAction {
+export enum NodeAction {
   Campaign = 'campaign',
   Destroy = 'destroy',
+  CompletionToElection = 'CompletionToElection',
+  LeaderChange = 'LeaderChange',
+  UpperReady = 'UpperReady',
 }

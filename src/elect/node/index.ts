@@ -41,7 +41,7 @@ export class Node {
   private logger = Logger.scope('Node');
   private disposer = new Disposer();
   service: Service | undefined;
-
+  private isInit = false;
   #isLeader: boolean;
   get isLeader() {
     return this.#isLeader;
@@ -61,6 +61,9 @@ export class Node {
   }
 
   private init = () => {
+    if (this.isInit) {
+      return;
+    }
     window.onbeforeunload = () => {
       this.destroy();
     };
@@ -95,6 +98,7 @@ export class Node {
           break;
       }
     });
+    this.isInit = true;
   };
 
   async completionToElection() {
@@ -113,7 +117,7 @@ export class Node {
   }
 
   private register() {
-    this.port.addEventListener('message', (ev) => {
+    const handleMessage = (ev: any) => {
       const { type } = ev.data as PayloadLike;
 
       switch (type) {
@@ -133,11 +137,20 @@ export class Node {
           this.logger.warn('unknown message', ev.data).print();
           break;
       }
+    };
+    this.port.addEventListener('message', handleMessage);
+    this.disposer.add(() => {
+      this.port.removeEventListener('message', handleMessage);
     });
 
-    this.port.onmessageerror = (error) => {
+    const handleMessageError = (error: any) => {
       this.logger.error('Message port error:', error).print();
     };
+
+    this.port.addEventListener('messageerror', handleMessageError);
+    this.disposer.add(() => {
+      this.port.removeEventListener('messageerror', handleMessageError);
+    });
   }
 
   private campaign = () => {
@@ -284,6 +297,7 @@ export class Node {
       if (payload.type === undefined) {
         _payload.type = MessageType.Request;
       }
+      this.logger.info('Request', _payload).print();
       this.promiseMap.set(_payload.reqId!, { resolve, reject });
       this.port.postMessage(_payload);
     });
@@ -306,5 +320,6 @@ export class Node {
     this._onNotice.dispose();
     this._onBroadcast.dispose();
     this._cacheTask = [];
+    this.isInit = false;
   };
 }

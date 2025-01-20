@@ -15,7 +15,7 @@ const App = () => {
 
   useEffect(() => {
     const boot = async () => {
-      const node = new Node(sharedWorker, {
+      const node = Node.getInstance(sharedWorker, {
         onElection: async (service: Service) => {
           await registerService(service);
         },
@@ -24,10 +24,6 @@ const App = () => {
       setNode(node);
     };
     boot();
-
-    return () => {
-      node?.destroy();
-    };
   }, []);
 
   const sendMessage = async () => {
@@ -84,14 +80,14 @@ const App = () => {
             window.deleteSqlite();
           }}
         >
-          clearDB
+          clearDBd
         </button>
         <button
           onClick={() => {
             deleteHandle(true);
           }}
         >
-          硬删除name
+          硬删name
         </button>
         <button onClick={() => deleteHandle()}>软删除name</button>
         <input
@@ -104,7 +100,7 @@ const App = () => {
         <button onClick={broadcast}>广播</button>
         <button onClick={watchBroadcast}>监听广播</button>
       </div>
-
+      12
       {/*  <div
         style={{
           width: '100%',

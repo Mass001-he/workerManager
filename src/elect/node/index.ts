@@ -50,7 +50,19 @@ export class Node {
   private reqIdCounter = new Counter();
   private options: NodeOptions;
 
-  constructor(sharedWorker: SharedWorker, options: NodeOptions = {}) {
+  static instance: Node | null = null;
+  static getInstance = (
+    sharedWorker: SharedWorker,
+    options: NodeOptions = {},
+  ) => {
+    if (Node.instance === null) {
+      const ins = new Node(sharedWorker, options);
+      Node.instance = ins;
+    }
+    return Node.instance;
+  };
+
+  private constructor(sharedWorker: SharedWorker, options: NodeOptions = {}) {
     this.logger.info('Created').print();
     this.options = { ...DefaultNodeOptions, ...options };
     this.promiseMap = new Map();

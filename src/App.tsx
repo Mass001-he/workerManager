@@ -15,13 +15,16 @@ const App = () => {
 
   useEffect(() => {
     const boot = async () => {
-      const node = Node.getInstance(sharedWorker, {
-        onElection: async (service: Service) => {
-          await registerService(service);
-        },
+      const p = new Promise<Node>((resolve) => {
+        const node = Node.getInstance(sharedWorker, {
+          onElection: async (service: Service) => {
+            await registerService(service);
+            resolve(node);
+          },
+        });
       });
 
-      setNode(node);
+      setNode(await p);
     };
     boot();
   }, []);
@@ -65,6 +68,9 @@ const App = () => {
       console.log('error===>', error);
     }
   };
+  if (!node) {
+    return null;
+  }
 
   return (
     <div
@@ -100,8 +106,7 @@ const App = () => {
         <button onClick={broadcast}>广播</button>
         <button onClick={watchBroadcast}>监听广播</button>
       </div>
-      12
-      {/*  <div
+      <div
         style={{
           width: '100%',
           height: 0,
@@ -110,14 +115,14 @@ const App = () => {
       >
         <SQLView
           exec={async (sql) => {
-            await worker?.request('exec', sql);
+            await node?.request('exec', sql);
           }}
           query={async (sql) => {
-            const res = await worker?.request('exec', sql);
+            const res = await node?.request('exec', sql);
             return res?.data;
           }}
         />
-      </div> */}
+      </div>
     </div>
   );
 };

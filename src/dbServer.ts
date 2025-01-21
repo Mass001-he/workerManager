@@ -60,7 +60,7 @@ setTimeout(() => {
       age: i,
     });
   }
-  
+
   // userRepo.insertMany(users);
 
   // userRepo.updateMany(
@@ -93,11 +93,11 @@ setTimeout(() => {
   //   },
   // });
 
-  userRepo.queryMany({
-    rowid: {
-      gt: 10,
-    },
-  });
+  // userRepo.queryMany({
+  //   rowid: {
+  //     gt: 10,
+  //   },
+  // });
 }, 1000);
 
 function connect(name: string) {
@@ -122,10 +122,6 @@ function callRepo<
   return repo[method](...params);
 }
 
-// callRepo('groupSequence','insert',[{
-
-// }])
-
 const rpc = {
   connect,
   callRepo,
@@ -135,5 +131,3 @@ const rpc = {
 export type rpcType = typeof rpc;
 
 Comlink.expose(rpc);
-
-// Comlink.expose(orm);

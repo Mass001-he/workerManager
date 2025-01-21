@@ -1,35 +1,36 @@
-import { type FC, useState, useEffect } from 'react'
-import { useHelper, useViewState } from '../../context'
-import { clsx, getAllTables, type GetAllTablesResult } from '../../helper'
-import styles from './index.module.css'
-import { SQLiteSvg, TableSvg } from '../svg'
-import { IconButton } from '../button/iconButton'
-import { Modal } from '../modal'
-import { Button } from '../button'
+import { type FC, useState, useEffect } from 'react';
+import { useHelper, useViewState } from '../../context';
+import { clsx, getAllTables, type GetAllTablesResult } from '../../helper';
+import styles from './index.module.css';
+import { SQLiteSvg, TableSvg } from '../svg';
+import { IconButton } from '../button/iconButton';
+import { Modal } from '../modal';
+import { Button } from '../button';
 
 export const TableList: FC = () => {
-  const helper = useHelper()
-  const [tables, setTables] = useState<GetAllTablesResult[]>([])
-  const { selectedTable, setSelectedTable } = useViewState()
-  const [showModal, setShowModal] = useState(false)
+  const helper = useHelper();
+  const [tables, setTables] = useState<GetAllTablesResult[]>([]);
+  const { selectedTable, setSelectedTable } = useViewState();
+  const [showModal, setShowModal] = useState(false);
 
   const queryTables = async () => {
-    const tables = await getAllTables(helper.query)
-    setTables(tables)
-  }
+    const tables = await getAllTables(helper.query);
+    setTables(tables);
+  };
 
   useEffect(() => {
-    queryTables()
-  }, [])
+    queryTables();
+  }, []);
 
   const querySqlInput = async () => {
-    const code = (document.getElementById('code_input') as any)!.value as string
+    const code = (document.getElementById('code_input') as any)!
+      .value as string;
     if (code) {
       helper.query(code).then((res) => {
-        console.log(res)
-      })
+        console.log(res);
+      });
     }
-  }
+  };
 
   return (
     <div className={styles.tableListWrapper}>
@@ -37,7 +38,7 @@ export const TableList: FC = () => {
         <div className={styles.tag}>ALLTables</div>
         <div className={styles.tableList}>
           {tables.map((table) => {
-            const isSelected = selectedTable?.name === table.name
+            const isSelected = selectedTable?.name === table.name;
             return (
               <div
                 key={table.name}
@@ -64,7 +65,7 @@ export const TableList: FC = () => {
                   ))}
                 </div>
               </div>
-            )
+            );
           })}
         </div>
       </div>
@@ -85,12 +86,12 @@ export const TableList: FC = () => {
           <div
             className={styles.actions}
             onClick={(e) => {
-              const target = e.target as HTMLElement
+              const target = e.target as HTMLElement;
               if (target.tagName === 'BUTTON') {
                 const codeInput = document.getElementById(
                   'code_input',
-                ) as HTMLTextAreaElement
-                codeInput.value += target.innerText + ' '
+                ) as HTMLTextAreaElement;
+                codeInput.value += target.innerText + ' ';
               }
             }}
           >
@@ -104,7 +105,7 @@ export const TableList: FC = () => {
           </div>
           <div className={styles.actions}>
             {tables.map((it) => {
-              const { name } = it
+              const { name } = it;
               return (
                 <Button
                   size="sm"
@@ -112,13 +113,13 @@ export const TableList: FC = () => {
                   onClick={() => {
                     const codeInput = document.getElementById(
                       'code_input',
-                    ) as HTMLTextAreaElement
-                    codeInput.value += ` ${name} `
+                    ) as HTMLTextAreaElement;
+                    codeInput.value += ` ${name} `;
                   }}
                 >
                   {name}
                 </Button>
-              )
+              );
             })}
           </div>
 
@@ -131,19 +132,19 @@ export const TableList: FC = () => {
               className={styles.textarea}
               onKeyDown={(e) => {
                 if (e.key === 'Tab') {
-                  e.preventDefault()
+                  e.preventDefault();
                   const codeInput = document.getElementById(
                     'code_input',
-                  ) as HTMLTextAreaElement
-                  codeInput.value += '  '
+                  ) as HTMLTextAreaElement;
+                  codeInput.value += '  ';
                 } else if (e.key === 'Enter') {
                   //如果带有shift键，就换行
                   if (e.shiftKey) {
-                    return
+                    return;
                   }
 
-                  e.preventDefault()
-                  querySqlInput()
+                  e.preventDefault();
+                  querySqlInput();
                 }
               }}
             ></textarea>
@@ -154,5 +155,5 @@ export const TableList: FC = () => {
         </Modal>
       </div>
     </div>
-  )
-}
+  );
+};

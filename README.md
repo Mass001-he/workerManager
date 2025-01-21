@@ -79,10 +79,12 @@
 
 ## 考虑优化项:
 
-- [x] 批量处理 事件队列统一派发给leader。
+- [x] 批量处理，事件队列统一派发给leader。
 - [x] server单一化，而不是每个client都会创建一个server。
-- [] 现行策略A->Scheduler->B , B->Scheduler->A,会存在多次序列化，并且如果数据体会有4次耗时的克隆和序列化的操作。
+- [ ] 现行策略A->Scheduler->B , B->Scheduler->A,会存在多次序列化，并且如果数据体会有4次耗时的克隆和序列化的操作。
   - 考虑优化成A->Scheduler->B , B->A->Scheduler,B->A 使用ShardBuffer，减少序列化和克隆的操作以及通信成本
-- [] ORM去除默认NOTNULL
-- [] 调度器添加碎片任务，避免大量碎片任务阻塞队列
+- [ ] ORM去除默认NOTNULL
+- [ ] 调度器添加碎片任务，避免大量碎片任务阻塞队列
 - [x] 重定义致命错误，当发生致命错误时必须删库重来或者临时表迁移
+- [ ] Scheduler取消主动选举,由Node主动参选
+  - [ ] 避免业务在Node参选

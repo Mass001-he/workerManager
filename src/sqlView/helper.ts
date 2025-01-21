@@ -22,9 +22,8 @@ export interface Pagination {
 }
 
 export const getAllTables = async (query: (sql: string) => Promise<any[]>) => {
-  const tables = await query(
-    `SELECT name FROM sqlite_master WHERE type='table';`,
-  );
+  const tables =
+    (await query(`SELECT name FROM sqlite_master WHERE type='table';`)) || [];
   //查询表的字段
   await Promise.all(
     tables.map(async (table) => {

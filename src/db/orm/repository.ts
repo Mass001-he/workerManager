@@ -11,6 +11,8 @@ import {
 export interface QueryOptions<T = any> {
   /** === */
   equal?: T;
+  /** !== */
+  notEqual?: T;
   /** < */
   lt?: number;
   /** > */
@@ -21,6 +23,7 @@ export interface QueryOptions<T = any> {
   gte?: number;
   /** like */
   like?: string;
+  orderBy?: 'ASC' | 'DESC';
 }
 
 type ColumnQuery<T extends Record<string, ColumnType>> = {
@@ -421,6 +424,11 @@ export class Repository<T extends Table> {
         `${attr} = ${typeof options.equal === 'string' ? `'${options.equal.replace(/'/g, "''")}'` : options.equal}`,
       );
     }
+    if (options.notEqual !== undefined) {
+      clauses.push(
+        `${attr} != ${typeof options.notEqual === 'string' ? `'${options.notEqual.replace(/'/g, "''")}'` : options.notEqual}`,
+      );
+    }
     if (options.lt !== undefined) {
       clauses.push(`${attr} < ${options.lt}`);
     }
@@ -435,6 +443,9 @@ export class Repository<T extends Table> {
     }
     if (options.like !== undefined) {
       clauses.push(`${attr} LIKE '%${options.like.replace(/'/g, "''")}%'`);
+    }
+    if (options.orderBy) {
+      clauses.push(`ORDER BY ${attr} ${options.orderBy}`);
     }
 
     return clauses.join(' AND ');

@@ -15,7 +15,14 @@ const App = () => {
 
   useEffect(() => {
     const boot = async () => {
-      const node = Node.getInstance(sharedWorker);
+      const node = Node.getInstance(sharedWorker, {
+        onElection: async (service) => {
+          console.log('onElection', service);
+          await registerService(node.service);
+        },
+      });
+
+      // nodeManager -> tab1 -> Node . onElection ->
 
       const result = await node.takeOffice();
       console.log('result===>', result);

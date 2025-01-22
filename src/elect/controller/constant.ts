@@ -5,3 +5,7 @@ export enum NodeAction {
   LeaderChange = 'LeaderChange',
   UpperReady = 'UpperReady',
 }
+
+export enum SchedulerAction {
+  TakeOffice = 'takeOffice',
+}

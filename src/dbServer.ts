@@ -54,17 +54,15 @@ const orm = new SqliteWasmORM(version2);
 const userRepo = orm.getRepository('user');
 //test
 setTimeout(() => {
-  const users = [];
-  for (let i = 0; i < 101; i++) {
-    users.push({
-      mid: i.toString() + i,
-      name: `name${i}`,
-      age: i,
-    });
-  }
-
-  userRepo.insertMany(users);
-
+  // const users = [];
+  // for (let i = 0; i < 101; i++) {
+  //   users.push({
+  //     mid: i.toString() + i,
+  //     name: `name${i}`,
+  //     age: i,
+  //   });
+  // }
+  // userRepo.insertMany(users);
   // userRepo.updateMany(
   //   {
   //     name: {
@@ -94,7 +92,6 @@ setTimeout(() => {
   //     like: 'name1',
   //   },
   // });
-
   // userRepo.queryMany({
   //   rowid: {
   //     gt: 10,

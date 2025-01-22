@@ -10,7 +10,7 @@ import type { NodeAction } from './constant';
 export class TabNodeManager {
   public nodes: TabNodeDescriptor[] = [];
   public nodeIdCounter = new Counter();
-  private logger = Logger.scope('TabManager');
+  private logger = Logger.scope('NodeManager');
 
   private _onMessage = new Emitter<{
     nodeId: string;

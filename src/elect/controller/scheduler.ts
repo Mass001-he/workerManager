@@ -2,12 +2,13 @@ import { Logger } from '../../utils';
 import {
   MessageType,
   type SharedWorkerGlobalScope,
-  type RequestPayload,
+  type ServiceRequestPayload,
   type DispatchResponsePayload,
   type DispatchRequestPayload,
   type NodeNoticePayload,
+  type RequestPayload,
 } from '../types';
-import { NodeAction } from './constant';
+import { NodeAction, SchedulerAction } from './constant';
 import { EventQueue } from './eventQueue';
 import { Council } from './council';
 import { TabNodeManager } from './nodeManager';
@@ -16,7 +17,7 @@ import { Prettier } from '../../utils.type';
 declare var self: SharedWorkerGlobalScope;
 declare var globalThis: typeof self;
 export type SchedulerEventQueueTask = Prettier<
-  RequestPayload & { nodeId: string }
+  ServiceRequestPayload & { nodeId: string }
 >;
 
 export class Scheduler {
@@ -69,7 +70,7 @@ export class Scheduler {
         node,
         message: {
           ...payload,
-          type: MessageType.Response,
+          type: MessageType.ServiceResponse,
         },
       });
     }
@@ -95,6 +96,7 @@ export class Scheduler {
           this.council.abdicate();
         }
         this.nodeManager.removeTab(nodeId);
+        break;
       case NodeAction.UpperReady:
         this.eventQueue.reActivation();
         this.nodeManager.broadcastNotice(NodeAction.LeaderChange, [nodeId]);
@@ -105,6 +107,33 @@ export class Scheduler {
     }
   };
 
+  private handleRequest(nodeId: string, payload: RequestPayload) {
+    this.logger.info('handleRequest', payload).print();
+    const actionType = payload.data.action;
+    const node = this.nodeManager.getNodeById(nodeId);
+
+    switch (actionType) {
+      case SchedulerAction.TakeOffice:
+        const result = this.council.takeOffice(nodeId);
+        this.nodeManager.postMessage({
+          node,
+          message: {
+            type: MessageType.Response,
+            reqId: payload.reqId,
+            success: true,
+            data: {
+              action: SchedulerAction.TakeOffice,
+              result,
+            },
+          },
+        });
+        break;
+      default:
+        this.logger.warn('unknown action', actionType).print();
+        break;
+    }
+  }
+
   private registerTabManager() {
     this.logger.info('register tab manager').print();
 
@@ -113,11 +142,14 @@ export class Scheduler {
       const { event, nodeId } = message;
       const payload = event.data;
       switch (payload.type) {
-        case MessageType.Request:
+        case MessageType.ServiceRequest:
           this.eventQueue.enqueue({
-            ...(payload as RequestPayload),
+            ...(payload as ServiceRequestPayload),
             nodeId,
           });
+          break;
+        case MessageType.Request:
+          this.handleRequest(nodeId, payload as RequestPayload);
           break;
         case MessageType.Broadcast:
           this.nodeManager.broadcastMessage(
@@ -140,12 +172,6 @@ export class Scheduler {
         default:
           this.logger.warn('unknown message', message).print();
           break;
-      }
-    });
-
-    this.nodeManager.onNodeAdded((e) => {
-      if (this.council.leader === undefined) {
-        this.council.campaign(e.id);
       }
     });
 

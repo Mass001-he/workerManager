@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { Node } from './elect/node';
-import type { Service } from './elect/node/service';
 import { registerService } from './service';
 import { SQLView } from './sqlView';
 import './index.css';
@@ -10,21 +9,21 @@ const sharedWorker = new SharedWorker(new URL('./worker.ts', import.meta.url), {
 });
 
 const App = () => {
+  const [hasLeader, setHasLeader] = useState(false);
   const [node, setNode] = useState<Node | null>(null);
   const [value, setValue] = useState(''); // 删除ID
 
   useEffect(() => {
     const boot = async () => {
-      const p = new Promise<Node>((resolve) => {
-        const node = Node.getInstance(sharedWorker, {
-          onElection: async (service: Service) => {
-            await registerService(service);
-            resolve(node);
-          },
-        });
-      });
+      const node = Node.getInstance(sharedWorker);
 
-      setNode(await p);
+      const result = await node.takeOffice();
+      console.log('result===>', result);
+      if (result) {
+        await registerService(node.service);
+      }
+      setHasLeader(true);
+      setNode(node);
     };
     boot();
   }, []);
@@ -68,7 +67,7 @@ const App = () => {
       console.log('error===>', error);
     }
   };
-  if (!node) {
+  if (!node || !hasLeader) {
     return null;
   }
 

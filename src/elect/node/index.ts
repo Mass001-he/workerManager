@@ -1,6 +1,6 @@
 import { Disposer, Emitter, Logger } from '../../utils';
 import { Service } from './service';
-import { NodeAction } from '../controller/constant';
+import { NodeAction, SchedulerAction } from '../controller/constant';
 import {
   DispatchRequestPayload,
   DispatchResponsePayload,
@@ -13,8 +13,6 @@ import {
   type ResponsePayload,
 } from '../types';
 import { Counter } from '../../utils';
-
-const DelayMs = 1500;
 
 /**
  * 默认节点选项
@@ -40,7 +38,7 @@ export class Node {
 
   private logger = Logger.scope('Node');
   private disposer = new Disposer();
-  service: Service | undefined;
+  service: Service = new Service();
   private isInit = false;
   #isLeader: boolean;
   get isLeader() {
@@ -79,19 +77,6 @@ export class Node {
     window.onbeforeunload = () => {
       this.destroy();
     };
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        setTimeout(() => {
-          if (document.visibilityState === 'visible') {
-            this.campaign();
-          }
-        }, DelayMs);
-      }
-    };
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    this.disposer.add(() => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    });
     this.register();
     this.port.start();
 
@@ -116,7 +101,7 @@ export class Node {
   async completionToElection() {
     this.logger.info('completionToElection').print();
     this.#isLeader = true;
-    this.service = new Service();
+    // this.service = new Service();
     this.handleTasks(this._cacheTask);
     this._cacheTask = [];
     await this.options.onElection?.(this.service);
@@ -137,6 +122,7 @@ export class Node {
           this._onNotice.fire(ev.data as NoticePayload);
           break;
         case MessageType.Response:
+        case MessageType.ServiceResponse:
           this.onResponse(ev.data);
           break;
         case MessageType.DispatchRequest:
@@ -165,12 +151,14 @@ export class Node {
     });
   }
 
-  private campaign = () => {
-    this.post({
+  public takeOffice = async () => {
+    const res = await this._request({
+      type: MessageType.Request,
       data: {
-        action: NodeAction.Campaign,
+        action: SchedulerAction.TakeOffice,
       },
     });
+    return res.data.result as boolean;
   };
 
   private onResponse(payload: ResponsePayload) {
@@ -307,7 +295,7 @@ export class Node {
         _payload.reqId = this.generateReqId();
       }
       if (payload.type === undefined) {
-        _payload.type = MessageType.Request;
+        _payload.type = MessageType.ServiceRequest;
       }
       this.logger.info('Request', _payload).print();
       this.promiseMap.set(_payload.reqId!, { resolve, reject });

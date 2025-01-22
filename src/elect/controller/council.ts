@@ -105,12 +105,12 @@ export class Council {
    * @description 最后参选的候选人会被下一次选举时当选。
    */
   public campaign = (candidate: string) => {
-    //如果当前leader是候选人，且没有其他候选人，不进行选举
-    if (this.leader === candidate && this.campaigners.length === 0) {
-      return;
-    }
     this.logger.info(`Campaign:`, candidate).print();
     if (candidate === undefined) {
+      return;
+    }
+    //如果当前leader是候选人，且没有其他候选人，不进行参选
+    if (this.leader === candidate && this.campaigners.length === 0) {
       return;
     }
     const idx = this.campaigners.findIndex((id) => id === candidate);
@@ -119,17 +119,28 @@ export class Council {
     }
     if (this.leader) {
       this.campaigners.push(candidate);
-      // if (this.leader === candidate) {
-      //   this.reElected();
-      // } else {
-      //   this.campaigners.push(candidate);
-      //   this.tenureCountdown();
-      //   this.logger.info(`Campaigners:`, this.campaigners).print();
-      // }
+      if (this.leader === candidate) {
+        this.reElected();
+      } else {
+        this.campaigners.push(candidate);
+        this.tenureCountdown();
+        this.logger.info(`Campaigners:`, this.campaigners).print();
+      }
     } else {
       this.changeLeader(candidate);
     }
   };
+
+  /**
+   *  上任就职,如果没有leader则直接上任,否则失败。此方式跳过了选举制度，根据需求使用参选或者直接上任。
+   */
+  public takeOffice(candidate: string) {
+    if (this.leader === undefined) {
+      this.changeLeader(candidate);
+      return true;
+    }
+    return false;
+  }
 
   public destroy() {
     this.logger.info('Council destroyed').print();

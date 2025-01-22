@@ -1,13 +1,17 @@
-import type { NodeAction } from './controller/constant';
+import type { NodeAction, SchedulerAction } from './controller/constant';
 import type { Service } from './node/service';
 
 export enum MessageType {
   /** 不需要调度器响应的请求 */
   NodeNotice = 'NodeNotice',
-  /** 请求调度器服务 */
+  /** 请求调度器方法 */
   Request = 'Request',
-  /** 响应调度器请求 */
+  /** 调度器响应请求 */
   Response = 'Response',
+  /** 请求调度Leader服务 */
+  ServiceRequest = 'ServiceRequest',
+  /** 响应调度Leader请求 */
+  ServiceResponse = 'ServiceResponse',
   /** 调度器指派执行者请求 */
   DispatchRequest = 'DispatchRequest',
   /** 执行者响应调度器指派请求 */
@@ -35,6 +39,12 @@ export interface BaseResponsePayload {
   message?: string;
 }
 
+export interface RequestPayload extends BaseRequestPayload {
+  data: {
+    action: SchedulerAction;
+  };
+}
+
 export interface NoticePayload {
   data: {
     action: NodeAction;
@@ -51,7 +61,7 @@ export interface BroadcastPayload<T extends Record<string, any> = any> {
 export interface DispatchRequestPayload extends BaseRequestPayload {
   type: MessageType.DispatchRequest;
   data: {
-    tasks: RequestPayload<RequestBody>[];
+    tasks: ServiceRequestPayload<ServiceRequestBody>[];
   };
 }
 
@@ -62,14 +72,14 @@ export interface DispatchResponsePayload<T = any> extends BaseResponsePayload {
   type: MessageType.DispatchResponse;
 }
 
-export interface RequestBody<T = any> {
+export interface ServiceRequestBody<T = any> {
   serviceName: string;
   params: T;
 }
 
-export interface RequestPayload<T = any> extends BaseRequestPayload {
+export interface ServiceRequestPayload<T = any> extends BaseRequestPayload {
   reqId: string;
-  data: RequestBody<T>;
+  data: ServiceRequestBody<T>;
 }
 
 export interface ResponsePayload<T = any> extends BaseResponsePayload {
@@ -102,7 +112,7 @@ export interface PayloadOptions {
   reqId?: string;
   type?: MessageType;
   data?: {
-    action?: NodeAction;
+    action?: NodeAction | SchedulerAction;
     [key: string]: any;
   };
   [key: string]: any;

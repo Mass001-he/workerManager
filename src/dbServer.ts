@@ -31,6 +31,7 @@ const version2 = {
     table(
       'user',
       {
+        mid: text().primary(),
         name: text(),
         age: integer().max(100),
         profile: text().default('123'),
@@ -56,12 +57,13 @@ setTimeout(() => {
   const users = [];
   for (let i = 0; i < 101; i++) {
     users.push({
+      mid: i.toString() + i,
       name: `name${i}`,
       age: i,
     });
   }
 
-  // userRepo.insertMany(users);
+  userRepo.insertMany(users);
 
   // userRepo.updateMany(
   //   {

@@ -8,11 +8,11 @@ import {
   kernelColumnsKeys,
 } from './table';
 
-export interface QueryOptions<T = any> {
+export interface ColClause<T = any> {
   /** === */
-  equal?: T;
+  equal?: T | T[];
   /** !== */
-  notEqual?: T;
+  notEqual?: T | T[];
   /** < */
   lt?: number;
   /** > */
@@ -26,8 +26,15 @@ export interface QueryOptions<T = any> {
   orderBy?: 'ASC' | 'DESC';
 }
 
+export interface QueryClauses {
+  limit?: number;
+  offset?: number;
+}
+
+export type QueryOneClauses = Omit<QueryClauses, 'limit'>;
+
 type ColumnQuery<T extends Record<string, ColumnType>> = {
-  [K in keyof T]?: QueryOptions | T[K]['__type'];
+  [K in keyof T]?: ColClause | T[K]['__type'];
 };
 
 export class Repository<T extends Table> {
@@ -118,8 +125,9 @@ export class Repository<T extends Table> {
 
   private _query(
     conditions: ColumnQuery<T['columns']>,
-    limit?: number,
+    queryClauses: QueryClauses = {},
   ): ColumnInfer<T['columns']>[] {
+    const { limit, offset } = queryClauses;
     // 构建 WHERE 子句
     const whereClauses = this.buildWhereClause(conditions);
 
@@ -131,8 +139,12 @@ export class Repository<T extends Table> {
 
   query(
     conditions: ColumnQuery<T['columns']>,
+    queryClauses?: QueryOneClauses,
   ): ColumnInfer<T['columns']> | undefined {
-    const result = this._query(conditions, 1);
+    const result = this._query(conditions, {
+      limit: 1,
+      offset: queryClauses?.offset,
+    });
     return result[0];
   }
 

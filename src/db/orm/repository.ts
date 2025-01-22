@@ -84,6 +84,12 @@ export class Repository<T extends Table> {
 
     _columns.forEach((column) => {
       Object.entries(column).forEach(([key, value]) => {
+        if (!this.columns[key]) {
+          this.logger.warn(
+            `The column '${key}' does not exist on table '${this.table.name}'.`,
+          );
+          return true;
+        }
         const res = this.columns[key].verify(value);
 
         if (res.length > 0) {
@@ -100,7 +106,7 @@ export class Repository<T extends Table> {
     return this.insertMany([item]);
   }
 
-  insertMany(items: ColumnInfer<T['columns']>[]) {
+  insertMany(items: ColumnInfer<T['columns']>[], uniqueKey?: string) {
     this.validateColumns(items);
 
     const columns = this.getColumn(items[0]);
@@ -118,7 +124,19 @@ export class Repository<T extends Table> {
       })
       .join(', ');
 
-    const sql = `INSERT INTO ${this.table.name} (${columns}) VALUES ${valuesList};`;
+    const primaryKey = Object.keys(this.table.columns).find(
+      (k) => this.table.columns[k]._primary,
+    );
+    let sql = `INSERT INTO ${this.table.name} (${columns}) VALUES ${valuesList}`;
+    const uKey = primaryKey || uniqueKey;
+    if (uKey) {
+      let allKeys = new Set(columns.split(', '));
+      allKeys.delete(uKey);
+      if (allKeys.size !== 0) {
+        const updateKeys = [...allKeys];
+        sql = `${sql} ON CONFLICT(${uKey}) DO UPDATE SET ${updateKeys.map((k) => `${k}=excluded.${k}`).join(', ')};`;
+      }
+    }
     // 执行插入操作
     return this.server.exec(sql);
   }
@@ -202,7 +220,9 @@ export class Repository<T extends Table> {
     conditions: ColumnQuery<T['columns']>,
     newData: Partial<ColumnInfer<T['columns']>>,
   ) {
-    const res = this._query(conditions, 1);
+    const res = this._query(conditions, {
+      limit: 1,
+    });
     if (res.length === 0) {
       this.logger.info('No record found').print();
       return false;
@@ -345,7 +365,9 @@ export class Repository<T extends Table> {
     conditions: ColumnQuery<T['columns']>,
     isHardDelete: boolean = false,
   ) {
-    const res = this._query(conditions, 1);
+    const res = this._query(conditions, {
+      limit: 1,
+    });
 
     if (res.length === 0) {
       this.logger.info('No record found').print();
@@ -393,15 +415,22 @@ export class Repository<T extends Table> {
 
     if (options.isHardDelete) {
       const sql = `DELETE FROM ${this.table.name} WHERE ${whereClauses}`;
+      this.logger.info('sql: ', sql).print();
       return this.server.exec(sql);
     } else {
       const sql = `UPDATE ${this.table.name} SET _deleteAt = current_timestamp WHERE ${whereClauses}`;
+      this.logger.info('sql: ', sql).print();
       return this.server.exec(sql);
     }
   }
 
   private getColumn(item: ColumnInfer<T['columns']>): string {
-    return Object.keys(item).join(', ');
+    const colNames = Object.keys(this.columns).filter(
+      (key) => !key.startsWith('_') && !['rowid'].includes(key),
+    );
+    return Object.keys(item)
+      .filter((k) => colNames.includes(k))
+      .join(', ');
   }
 
   /**
@@ -415,6 +444,7 @@ export class Repository<T extends Table> {
         return this.optionsClauses(key, options);
       })
       .join(' AND ');
+    this.logger.info(`whereClauses: ${whereClauses}`);
     return whereClauses;
   }
 
@@ -422,24 +452,46 @@ export class Repository<T extends Table> {
     return `rowid IN (${res.map((item) => item.rowid)})`;
   }
 
+  private handleArrayClause(options: string[] | number[]) {
+    return `(${options.map((item) => (typeof item === 'string' ? `'${item.replace(/'/g, "''")}'` : item)).join(', ')})`;
+  }
+
   private optionsClauses(
     attr: string,
-    options: QueryOptions | string | number,
+    options: ColClause | string | number | string[] | number[],
   ) {
     if (typeof options === 'string' || typeof options === 'number') {
       return `${attr} = ${typeof options === 'string' ? `'${options.replace(/'/g, "''")}'` : options}`;
     }
+    if (Array.isArray(options)) {
+      return `${attr} IN ${this.handleArrayClause(options)}`;
+      // return `${attr} IN (${options.map((item) => (typeof item === 'string' ? `'${item.replace(/'/g, "''")}'` : item)).join(', ')})`;
+    }
     const clauses: string[] = [];
 
     if (options.equal !== undefined) {
-      clauses.push(
-        `${attr} = ${typeof options.equal === 'string' ? `'${options.equal.replace(/'/g, "''")}'` : options.equal}`,
-      );
+      if (Array.isArray(options.equal)) {
+        clauses.push(
+          `${attr} IN ${this.handleArrayClause(options.equal)}`,
+          // `${attr} IN (${options.equal.map((item) => (typeof item === 'string' ? `'${item.replace(/'/g, "''")}'` : item)).join(', ')})`,
+        );
+      } else {
+        clauses.push(
+          `${attr} = ${typeof options.equal === 'string' ? `'${options.equal.replace(/'/g, "''")}'` : options.equal}`,
+        );
+      }
     }
     if (options.notEqual !== undefined) {
-      clauses.push(
-        `${attr} != ${typeof options.notEqual === 'string' ? `'${options.notEqual.replace(/'/g, "''")}'` : options.notEqual}`,
-      );
+      if (Array.isArray(options.notEqual)) {
+        clauses.push(
+          `${attr} NOT IN ${this.handleArrayClause(options.notEqual)}`,
+          // `${attr} NOT IN (${options.notEqual.map((item) => (typeof item === 'string' ? `'${item.replace(/'/g, "''")}'` : item)).join(', ')})`,
+        );
+      } else {
+        clauses.push(
+          `${attr} != ${typeof options.notEqual === 'string' ? `'${options.notEqual.replace(/'/g, "''")}'` : options.notEqual}`,
+        );
+      }
     }
     if (options.lt !== undefined) {
       clauses.push(`${attr} < ${options.lt}`);

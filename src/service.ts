@@ -25,8 +25,13 @@ export async function registerService(service: Service) {
   await rpc.connect('test.db');
   service.onDestroy(close);
 
-  service.add('retInc1', (i) => {
-    return i + 1;
+  service.add('deleteMsg', ({ data }) => {
+    return rpc.callRepo('user', 'removeMany', [
+      {
+        name: data.deleteName,
+      },
+      data.isHardDelete,
+    ]);
   });
   service.add('exec', (sql) => rpc.exec(sql));
 }

@@ -100,16 +100,21 @@ export class SqliteWasmORM<T extends Table[]> {
   }
 
   exec<R>(sql: string) {
-    const result = this.dbOriginal.exec(sql, {
-      rowMode: 'object',
-    });
-    this.logger
-      .info('Exec:\n', {
-        sql,
-        result,
-      })
-      .print();
-    return result as R;
+    try {
+      const result = this.dbOriginal.exec(sql, {
+        rowMode: 'object',
+      });
+      this.logger
+        .info('Exec:\n', {
+          sql,
+          result,
+        })
+        .print();
+      return result as R;
+    } catch (error) {
+      this.logger.error(`Exec :${sql}`, error).print();
+      throw error;
+    }
   }
 
   callRepo<N extends T[number]['name']>(name: N) {

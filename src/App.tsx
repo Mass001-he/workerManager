@@ -59,7 +59,7 @@ const App = () => {
     try {
       const res = await node?.request('deleteMsg', {
         data: {
-          deleteName: value,
+          deleteName: value.split(','),
           isHardDelete,
         },
       });

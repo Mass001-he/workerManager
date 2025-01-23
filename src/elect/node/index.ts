@@ -98,19 +98,26 @@ export class Node {
     this.isInit = true;
   };
 
-  async completionToElection() {
+  private async completionToElection() {
     this.logger.info('completionToElection').print();
     this.#isLeader = true;
     // this.service = new Service();
     this.handleTasks(this._cacheTask);
     this._cacheTask = [];
     await this.options.onElection?.(this.service);
+    this.upperReady();
+    this.logger.info('Election success').print();
+  }
+
+  /**
+   * 准备就绪，通知`Scheduler`可以开始工作了。调用后，`Scheduler`会开始派发任务
+   */
+  upperReady() {
     this.post({
       data: {
         action: NodeAction.UpperReady,
       },
     });
-    this.logger.info('Election success').print();
   }
 
   private register() {

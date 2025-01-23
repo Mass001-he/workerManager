@@ -27,6 +27,7 @@ export class Scheduler {
   private destroyFn: Array<() => void> = [];
   private logger = Logger.scope('Scheduler');
   private dispatchMap = new Map<string, SchedulerEventQueueTask>();
+  private isReadyDispatch = false;
 
   constructor() {
     this.logger.info('Created').print();
@@ -92,13 +93,19 @@ export class Scheduler {
         this.council.campaign(nodeId);
         break;
       case NodeAction.Destroy:
+        this.nodeManager.removeTab(nodeId);
         if (nodeId === this.council.leader && !!nodeId) {
+          this.isReadyDispatch = false;
           this.council.abdicate();
         }
-        this.nodeManager.removeTab(nodeId);
         break;
       case NodeAction.UpperReady:
-        this.eventQueue.reActivation();
+        if (this.council.leader !== nodeId) {
+          this.logger.error('UpperReady: leader not equals', nodeId).print();
+          throw new Error('UpperReady: leader not found');
+        }
+        this.isReadyDispatch = true;
+        this.eventQueue.dispatch();
         this.nodeManager.broadcastNotice(NodeAction.LeaderChange, [nodeId]);
         break;
       default:
@@ -138,15 +145,23 @@ export class Scheduler {
     this.logger.info('register tab manager').print();
 
     this.nodeManager.onMessage((message) => {
-      this.logger.info('onMessage', message).print();
       const { event, nodeId } = message;
       const payload = event.data;
+      this.logger
+        .info('onMessage', {
+          nodeId,
+          payload,
+        })
+        .print();
       switch (payload.type) {
         case MessageType.ServiceRequest:
-          this.eventQueue.enqueue({
-            ...(payload as ServiceRequestPayload),
-            nodeId,
-          });
+          this.eventQueue.enqueue(
+            {
+              ...(payload as ServiceRequestPayload),
+              nodeId,
+            },
+            this.isReadyDispatch,
+          );
           break;
         case MessageType.Request:
           this.handleRequest(nodeId, payload as RequestPayload);

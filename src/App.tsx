@@ -11,14 +11,13 @@ const sharedWorker = new SharedWorker(new URL('./worker.ts', import.meta.url), {
 const App = () => {
   const [hasLeader, setHasLeader] = useState(false);
   const [node, setNode] = useState<Node | null>(null);
-  const [value, setValue] = useState(''); // 删除ID
 
   useEffect(() => {
     const boot = async () => {
       const node = Node.getInstance(sharedWorker, {
         onElection: async (service) => {
           console.log('onElection', service);
-          await registerService(node.service);
+          await registerService(service);
         },
       });
 
@@ -28,7 +27,9 @@ const App = () => {
       console.log('result===>', result);
       if (result) {
         await registerService(node.service);
+        node.upperReady();
       }
+
       setHasLeader(true);
       setNode(node);
     };
@@ -58,22 +59,6 @@ const App = () => {
     });
   };
 
-  const deleteHandle = async (isHardDelete: boolean = false) => {
-    if (!value) {
-      return alert('请输入ID');
-    }
-    try {
-      const res = await node?.request('deleteMsg', {
-        data: {
-          deleteName: value.split(','),
-          isHardDelete,
-        },
-      });
-      console.log('deleteHandle', res);
-    } catch (error) {
-      console.log('error===>', error);
-    }
-  };
   if (!node || !hasLeader) {
     return null;
   }
@@ -96,18 +81,11 @@ const App = () => {
         </button>
         <button
           onClick={() => {
-            deleteHandle(true);
+            node.request('test', {});
           }}
         >
-          硬删name
+          test
         </button>
-        <button onClick={() => deleteHandle()}>软删除name</button>
-        <input
-          type="text"
-          placeholder="删除Name"
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-        />
         <button onClick={sendMessage}>有返回值发送消息 </button>
         <button onClick={broadcast}>广播</button>
         <button onClick={watchBroadcast}>监听广播</button>

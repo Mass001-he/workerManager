@@ -1,4 +1,10 @@
-import type { OpfsSAHPoolDatabase, SAHPoolUtil } from '@sqlite.org/sqlite-wasm';
+import type {
+  ExecBaseOptions,
+  ExecReturnThisOptions,
+  ExecRowModeObjectOptions,
+  OpfsSAHPoolDatabase,
+  SAHPoolUtil,
+} from '@sqlite.org/sqlite-wasm';
 import type { Table } from './table';
 import { Logger } from '../../utils';
 import { Repository } from './repository';
@@ -99,10 +105,16 @@ export class SqliteWasmORM<T extends Table[]> {
     }
   }
 
-  exec<R>(sql: string) {
+  exec<R>(
+    sql: string,
+    options?: ExecBaseOptions &
+      ExecRowModeObjectOptions &
+      ExecReturnThisOptions,
+  ) {
     try {
       const result = this.dbOriginal.exec(sql, {
         rowMode: 'object',
+        ...options,
       });
       this.logger
         .info('Exec:\n', {

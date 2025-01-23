@@ -34,4 +34,8 @@ export async function registerService(service: Service) {
     ]);
   });
   service.add('exec', (sql) => rpc.exec(sql));
+
+  service.add('search', (data) => {
+    return rpc.callRepo('user', 'queryMany', data);
+  });
 }

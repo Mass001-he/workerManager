@@ -18,7 +18,7 @@ const App = () => {
       const node = Node.getInstance(sharedWorker, {
         onElection: async (service) => {
           console.log('onElection', service);
-          await registerService(node.service);
+          // await registerService(node.service);
         },
       });
 
@@ -30,6 +30,7 @@ const App = () => {
         await registerService(node.service);
       }
       setHasLeader(true);
+      (window as any).node = node;
       setNode(node);
     };
     boot();
@@ -111,6 +112,20 @@ const App = () => {
         <button onClick={sendMessage}>有返回值发送消息 </button>
         <button onClick={broadcast}>广播</button>
         <button onClick={watchBroadcast}>监听广播</button>
+        <button
+          onClick={async () => {
+            const res = await node?.request('search', [
+              {
+                name: {
+                  like: 'name1',
+                },
+              },
+            ]);
+            debugger;
+          }}
+        >
+          获取部分数据
+        </button>
       </div>
       <div
         style={{

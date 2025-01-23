@@ -34,7 +34,7 @@ export interface QueryClauses {
 export type QueryOneClauses = Omit<QueryClauses, 'limit'>;
 
 type ColumnQuery<T extends Record<string, ColumnType>> = {
-  [K in keyof T]?: ColClause | T[K]['__type'];
+  [K in keyof T]?: ColClause | T[K]['__type'] | T[K]['__type'][];
 };
 
 export class Repository<T extends Table> {
@@ -109,14 +109,22 @@ export class Repository<T extends Table> {
   insertMany(items: ColumnInfer<T['columns']>[], uniqueKey?: string) {
     this.validateColumns(items);
 
+    if (items.length === 0) {
+      return;
+    }
+
     const columns = this.getColumn(items[0]);
 
     // 构建插入 SQL 语句
     const valuesList = items
       .map((item) => {
-        const values = Object.values(item).map((value) => {
+        const values = columns.map((k) => {
+          const value = item[k as keyof typeof item];
           if (typeof value === 'string') {
             return `'${(value as string).replace(/'/g, "''")}'`; // 处理字符串中的单引号
+          }
+          if (value === null || value === undefined) {
+            return 'NULL';
           }
           return value;
         });
@@ -127,16 +135,17 @@ export class Repository<T extends Table> {
     const primaryKey = Object.keys(this.table.columns).find(
       (k) => this.table.columns[k]._primary,
     );
-    let sql = `INSERT INTO ${this.table.name} (${columns}) VALUES ${valuesList}`;
+    let sql = `INSERT INTO ${this.table.name} (${columns.join(', ')}) VALUES ${valuesList}`;
     const uKey = primaryKey || uniqueKey;
     if (uKey) {
-      let allKeys = new Set(columns.split(', '));
+      let allKeys = new Set(columns);
       allKeys.delete(uKey);
       if (allKeys.size !== 0) {
         const updateKeys = [...allKeys];
         sql = `${sql} ON CONFLICT(${uKey}) DO UPDATE SET ${updateKeys.map((k) => `${k}=excluded.${k}`).join(', ')};`;
       }
     }
+    this.logger.info('insertMany sql ===>', sql).print();
     // 执行插入操作
     return this.server.exec(sql);
   }
@@ -151,6 +160,7 @@ export class Repository<T extends Table> {
 
     const sqlBase = `SELECT rowid, * FROM ${this.table.name} WHERE ${whereClauses} AND _deleteAt IS NULL`;
     const sql = limit ? sqlBase + ` LIMIT ${limit};` : sqlBase + `;`;
+    this.logger.info('query sql ===>', sql).print();
     const result = this.server.exec(sql) || [];
     return result as unknown as ColumnInfer<T['columns']>[];
   }
@@ -168,8 +178,12 @@ export class Repository<T extends Table> {
 
   queryMany(
     conditions: ColumnQuery<T['columns']>,
+    queryClauses?: QueryClauses,
   ): ColumnInfer<T['columns']>[] {
-    return this._query(conditions);
+    return this._query(conditions, {
+      limit: queryClauses?.limit,
+      offset: queryClauses?.offset,
+    });
   }
 
   /**
@@ -199,6 +213,57 @@ export class Repository<T extends Table> {
     }
   }
 
+  bulkPut(newData: ColumnInfer<T['columns']>[], uniqueKey?: string) {
+    const primaryKey =
+      Object.keys(this.columns).find((k) => this.columns[k]._primary) ||
+      uniqueKey;
+
+    if (!primaryKey) {
+      throw new Error('No primary key found');
+    }
+
+    const ids = newData.map(
+      (item) => item[primaryKey as keyof ColumnInfer<T['columns']>],
+    );
+
+    const searchData = {
+      [primaryKey]: ids,
+    } as ColumnQuery<T['columns']>;
+
+    // 根据 primaryKey 查询满足 newDate 中的数据
+    const res = this._query(searchData);
+    if (res.length === 0) {
+      this.logger.info('No record found').print();
+      return false;
+    }
+    // 根据 newData 和 res 构建更新sql语句
+    const updateSql = this.buildUpdateSql(res, newData, primaryKey);
+
+    this.logger.info('bulkPut sql ===>', updateSql).print();
+    this.server.exec(updateSql);
+    // const changes = this.server.exec('SELECT changes() as changes;');
+    return res.map(
+      (item) => item[primaryKey as keyof ColumnInfer<T['columns']>],
+    );
+  }
+
+  private buildUpdateSql(
+    res: ColumnInfer<T['columns']>[],
+    newData: ColumnInfer<T['columns']>[],
+    primaryKey: string,
+  ): string {
+    const updateClauses = res.map((row, index) => {
+      const setClauses = Object.entries(newData[index])
+        .map(([key, value]) =>
+          key !== primaryKey ? `${key} = ${this.escapeSqlValue(value)}` : '',
+        )
+        .filter(Boolean)
+        .join(', ');
+      return `UPDATE ${this.table.name} SET ${setClauses} WHERE ${primaryKey} = ${this.escapeSqlValue(row[primaryKey as keyof ColumnInfer<T['columns']>])};`;
+    });
+    return `BEGIN TRANSACTION; ${updateClauses.join(' ')} COMMIT;`;
+  }
+
   private _fastUpdate(
     conditions: ColumnQuery<T['columns']>,
     newData: Partial<ColumnInfer<T['columns']>>,
@@ -211,6 +276,7 @@ export class Repository<T extends Table> {
     const setClauses = this.buildSetClauses(newData);
     // 构建更新 SQL 语句
     const sql = `UPDATE ${this.table.name} SET ${setClauses} WHERE ${whereClauses}`;
+    this.logger.info('update sql ===>', sql).print();
     // 执行更新操作
     this.server.exec(sql);
     return true;
@@ -234,6 +300,7 @@ export class Repository<T extends Table> {
     const setClauses = this.buildSetClauses(newData);
     // 构建更新 SQL 语句
     const sql = `UPDATE ${this.table.name} SET ${setClauses} WHERE rowid = ${res[0].rowid}`;
+    this.logger.info('update sql ===>', sql).print();
     // 执行更新操作
     this.server.exec(sql);
 
@@ -272,6 +339,7 @@ export class Repository<T extends Table> {
     const setClauses = this.buildSetClauses(newData);
     // 构建更新 SQL 语句
     const sql = `UPDATE ${this.table.name} SET ${setClauses} WHERE ${whereClauses}`;
+    this.logger.info('updateMany sql ===>', sql).print();
     // 执行更新操作
     this.server.exec(sql);
     return true;
@@ -296,6 +364,7 @@ export class Repository<T extends Table> {
     const whereClauses = this.buildWhereWithRowid(res);
     // 构建更新 SQL 语句
     const sql = `UPDATE ${this.table.name} SET ${setClauses} WHERE ${whereClauses}`;
+    this.logger.info('updateMany sql ===>', sql).print();
     // 执行更新操作
     this.server.exec(sql);
 
@@ -351,11 +420,13 @@ export class Repository<T extends Table> {
     if (options.isHardDelete) {
       // 硬删除
       const deleteSql = `DELETE FROM ${this.table.name} WHERE ${whereClauses}`;
+      this.logger.info('remove sql: ', deleteSql).print();
       const _delRes = this.server.exec(deleteSql);
       return _delRes;
     } else {
       // 软删除
       const updateSql = `UPDATE ${this.table.name} SET _deleteAt = current_timestamp WHERE ${whereClauses}`;
+      this.logger.info('remove sql: ', updateSql).print();
       const _delRes = this.server.exec(updateSql);
       return _delRes;
     }
@@ -376,11 +447,13 @@ export class Repository<T extends Table> {
     if (isHardDelete) {
       // 硬删除
       const deleteSql = `DELETE FROM ${this.table.name} WHERE rowid = ${res[0].rowid}`;
+      this.logger.info('remove sql: ', deleteSql).print();
       const _delRes = this.server.exec(deleteSql);
       return _delRes;
     } else {
       // 软删除
       const updateSql = `UPDATE ${this.table.name} SET _deleteAt = current_timestamp WHERE rowid = ${res[0].rowid}`;
+      this.logger.info('remove sql: ', updateSql).print();
       const _delRes = this.server.exec(updateSql);
       return _delRes;
     }
@@ -415,22 +488,20 @@ export class Repository<T extends Table> {
 
     if (options.isHardDelete) {
       const sql = `DELETE FROM ${this.table.name} WHERE ${whereClauses}`;
-      this.logger.info('sql: ', sql).print();
+      this.logger.info('remove sql: ', sql).print();
       return this.server.exec(sql);
     } else {
       const sql = `UPDATE ${this.table.name} SET _deleteAt = current_timestamp WHERE ${whereClauses}`;
-      this.logger.info('sql: ', sql).print();
+      this.logger.info('remove sql: ', sql).print();
       return this.server.exec(sql);
     }
   }
 
-  private getColumn(item: ColumnInfer<T['columns']>): string {
+  private getColumn(item: ColumnInfer<T['columns']>): string[] {
     const colNames = Object.keys(this.columns).filter(
       (key) => !key.startsWith('_') && !['rowid'].includes(key),
     );
-    return Object.keys(item)
-      .filter((k) => colNames.includes(k))
-      .join(', ');
+    return Object.keys(item).filter((k) => colNames.includes(k));
   }
 
   /**
@@ -458,8 +529,19 @@ export class Repository<T extends Table> {
 
   private optionsClauses(
     attr: string,
-    options: ColClause | string | number | string[] | number[],
+    options:
+      | ColClause
+      | string
+      | number
+      | string[]
+      | number[]
+      | null
+      | undefined,
   ) {
+    if (options === null || options === undefined) {
+      return `${attr} IS NULL`;
+    }
+
     if (typeof options === 'string' || typeof options === 'number') {
       return `${attr} = ${typeof options === 'string' ? `'${options.replace(/'/g, "''")}'` : options}`;
     }
@@ -468,6 +550,14 @@ export class Repository<T extends Table> {
       // return `${attr} IN (${options.map((item) => (typeof item === 'string' ? `'${item.replace(/'/g, "''")}'` : item)).join(', ')})`;
     }
     const clauses: string[] = [];
+
+    if (options.equal === null) {
+      clauses.push(`${attr} IS NULL`);
+    }
+
+    if (options.notEqual === null) {
+      clauses.push(`${attr} IS NOT NULL`);
+    }
 
     if (options.equal !== undefined) {
       if (Array.isArray(options.equal)) {
@@ -524,12 +614,20 @@ export class Repository<T extends Table> {
     const setClauses = Object.entries(newData)
       .map(([key, value]) => {
         if (typeof value === 'string') {
-          return `${key} = '${value.replace(/'/g, "''")}'`; // 处理字符串中的单引号
+          return `${key} = '${(value as string).replace(/'/g, "''")}'`; // 处理字符串中的单引号
         }
         return `${key} = ${value}`;
       })
       .join(', ');
 
     return setClauses;
+  }
+
+  private escapeSqlValue(value: any): string {
+    if (typeof value === 'string') {
+      // 处理字符串中的单引号
+      return `'${value.replace(/'/g, "''")}'`;
+    }
+    return value;
   }
 }

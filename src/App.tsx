@@ -117,8 +117,14 @@ const App = () => {
             const res = await node?.request('search', [
               {
                 name: {
-                  like: 'name1',
+                  equal: ['name1', 'name2', 'name3', 'name4'],
+                  orderBy: 'DESC',
                 },
+                age: {
+                  gt: 0,
+                  orderBy: 'ASC',
+                },
+                abc: 1,
               },
             ]);
             debugger;

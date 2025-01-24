@@ -154,12 +154,16 @@ export class Repository<T extends Table> {
     conditions: ColumnQuery<T['columns']>,
     queryClauses: QueryClauses = {},
   ): ColumnInfer<T['columns']>[] {
-    const { limit, offset } = queryClauses;
     // 构建 WHERE 子句
     const whereClauses = this.buildWhereClause(conditions);
+    // 构建 ORDER BY 子句
+    const orderByClauses = this.buildOrderByClause(conditions);
 
-    const sqlBase = `SELECT rowid, * FROM ${this.table.name} WHERE ${whereClauses} AND _deleteAt IS NULL`;
-    const sql = limit ? sqlBase + ` LIMIT ${limit};` : sqlBase + `;`;
+    // 构建 LIMIT 子句
+    const limitClause = this.buildLimitClause(queryClauses);
+
+    const sql = `SELECT rowid, * FROM ${this.table.name} ${whereClauses} ${orderByClauses} ${limitClause}`;
+
     this.logger.info('query sql ===>', sql).print();
     const result = this.server.exec(sql) || [];
     return result as unknown as ColumnInfer<T['columns']>[];
@@ -198,7 +202,7 @@ export class Repository<T extends Table> {
     options: {
       fast?: boolean;
     } = {
-      fast: false,
+      fast: true,
     },
   ) {
     const { fast } = options;
@@ -275,7 +279,7 @@ export class Repository<T extends Table> {
     // 构建 SET 子句
     const setClauses = this.buildSetClauses(newData);
     // 构建更新 SQL 语句
-    const sql = `UPDATE ${this.table.name} SET ${setClauses} WHERE ${whereClauses}`;
+    const sql = `UPDATE ${this.table.name} ${setClauses} ${whereClauses}`;
     this.logger.info('update sql ===>', sql).print();
     // 执行更新操作
     this.server.exec(sql);
@@ -299,7 +303,7 @@ export class Repository<T extends Table> {
     // 构建 SET 子句
     const setClauses = this.buildSetClauses(newData);
     // 构建更新 SQL 语句
-    const sql = `UPDATE ${this.table.name} SET ${setClauses} WHERE rowid = ${res[0].rowid}`;
+    const sql = `UPDATE ${this.table.name} ${setClauses} WHERE rowid = ${res[0].rowid}`;
     this.logger.info('update sql ===>', sql).print();
     // 执行更新操作
     this.server.exec(sql);
@@ -313,7 +317,7 @@ export class Repository<T extends Table> {
     options: {
       fast?: boolean;
     } = {
-      fast: false,
+      fast: true,
     },
   ): boolean {
     const { fast } = options;
@@ -338,7 +342,7 @@ export class Repository<T extends Table> {
     // 构建 SET 子句
     const setClauses = this.buildSetClauses(newData);
     // 构建更新 SQL 语句
-    const sql = `UPDATE ${this.table.name} SET ${setClauses} WHERE ${whereClauses}`;
+    const sql = `UPDATE ${this.table.name} ${setClauses} ${whereClauses}`;
     this.logger.info('updateMany sql ===>', sql).print();
     // 执行更新操作
     this.server.exec(sql);
@@ -363,7 +367,7 @@ export class Repository<T extends Table> {
     // 构建 WHERE 子句
     const whereClauses = this.buildWhereWithRowid(res);
     // 构建更新 SQL 语句
-    const sql = `UPDATE ${this.table.name} SET ${setClauses} WHERE ${whereClauses}`;
+    const sql = `UPDATE ${this.table.name} ${setClauses} ${whereClauses}`;
     this.logger.info('updateMany sql ===>', sql).print();
     // 执行更新操作
     this.server.exec(sql);
@@ -383,8 +387,8 @@ export class Repository<T extends Table> {
       isHardDelete?: boolean;
       fast?: boolean;
     } = {
-      isHardDelete: false,
-      fast: false,
+      isHardDelete: true,
+      fast: true,
     },
   ) {
     const { isHardDelete, fast } = options;
@@ -412,20 +416,20 @@ export class Repository<T extends Table> {
     options: {
       isHardDelete?: boolean;
     } = {
-      isHardDelete: false,
+      isHardDelete: true,
     },
   ) {
     // 构建 WHERE 子句
     const whereClauses = this.buildWhereClause(conditions);
     if (options.isHardDelete) {
       // 硬删除
-      const deleteSql = `DELETE FROM ${this.table.name} WHERE ${whereClauses}`;
+      const deleteSql = `DELETE FROM ${this.table.name} ${whereClauses}`;
       this.logger.info('remove sql: ', deleteSql).print();
       const _delRes = this.server.exec(deleteSql);
       return _delRes;
     } else {
       // 软删除
-      const updateSql = `UPDATE ${this.table.name} SET _deleteAt = current_timestamp WHERE ${whereClauses}`;
+      const updateSql = `UPDATE ${this.table.name} SET _deleteAt = current_timestamp ${whereClauses}`;
       this.logger.info('remove sql: ', updateSql).print();
       const _delRes = this.server.exec(updateSql);
       return _delRes;
@@ -473,7 +477,7 @@ export class Repository<T extends Table> {
     options: {
       isHardDelete?: boolean;
     } = {
-      isHardDelete: false,
+      isHardDelete: true,
     },
   ) {
     // 查询数据库中满足条件的数据
@@ -487,11 +491,11 @@ export class Repository<T extends Table> {
     const whereClauses = this.buildWhereWithRowid(res);
 
     if (options.isHardDelete) {
-      const sql = `DELETE FROM ${this.table.name} WHERE ${whereClauses}`;
+      const sql = `DELETE FROM ${this.table.name} ${whereClauses}`;
       this.logger.info('remove sql: ', sql).print();
       return this.server.exec(sql);
     } else {
-      const sql = `UPDATE ${this.table.name} SET _deleteAt = current_timestamp WHERE ${whereClauses}`;
+      const sql = `UPDATE ${this.table.name} SET _deleteAt = current_timestamp ${whereClauses}`;
       this.logger.info('remove sql: ', sql).print();
       return this.server.exec(sql);
     }
@@ -504,6 +508,40 @@ export class Repository<T extends Table> {
     return Object.keys(item).filter((k) => colNames.includes(k));
   }
 
+  private buildLimitClause(options: QueryClauses) {
+    const { limit, offset } = options;
+    let str = '';
+    if (limit) {
+      str += `LIMIT ${limit}`;
+    } else {
+      return str;
+    }
+    if (offset) {
+      str += ` OFFSET ${offset}`;
+    }
+    return str;
+  }
+
+  private buildOrderByClause(conditions: ColumnQuery<T['columns']>) {
+    const orderByOptions = Object.entries(conditions).filter(([_, v]) => {
+      // 如果v是对象，并且有order属性，那么就认为是排序条件
+      if (typeof v === 'object' && v !== null && 'orderBy' in v) {
+        return true;
+      }
+    });
+
+    if (orderByOptions.length === 0) {
+      return '';
+    }
+    const orderByStr = orderByOptions
+      .map(([k, v]) => {
+        return `${k} ${v.orderBy}`;
+      })
+      .filter(Boolean)
+      .join(', ');
+    return `ORDER BY ${orderByStr}`;
+  }
+
   /**
    * 构建 WHERE 子句
    * @param conditions
@@ -511,19 +549,25 @@ export class Repository<T extends Table> {
    */
   private buildWhereClause(conditions: ColumnQuery<T['columns']>) {
     const whereClauses = Object.entries(conditions)
-      .map(([key, options]) => {
+      ?.map(([key, options]) => {
         return this.optionsClauses(key, options);
       })
       .join(' AND ');
     this.logger.info(`whereClauses: ${whereClauses}`);
-    return whereClauses;
+    if (!whereClauses) {
+      return `WHERE _deleteAt IS NULL`;
+    }
+    return `WHERE _deleteAt IS NULL AND ${whereClauses}`;
   }
 
   private buildWhereWithRowid(res: ColumnInfer<T['columns']>[]) {
-    return `rowid IN (${res.map((item) => item.rowid)})`;
+    return `WHERE rowid IN (${res.map((item) => item.rowid)})`;
   }
 
   private handleArrayClause(options: string[] | number[]) {
+    if (options.length === 0) {
+      return '';
+    }
     return `(${options.map((item) => (typeof item === 'string' ? `'${item.replace(/'/g, "''")}'` : item)).join(', ')})`;
   }
 
@@ -546,8 +590,10 @@ export class Repository<T extends Table> {
       return `${attr} = ${typeof options === 'string' ? `'${options.replace(/'/g, "''")}'` : options}`;
     }
     if (Array.isArray(options)) {
+      if (options.length === 0) {
+        return ``;
+      }
       return `${attr} IN ${this.handleArrayClause(options)}`;
-      // return `${attr} IN (${options.map((item) => (typeof item === 'string' ? `'${item.replace(/'/g, "''")}'` : item)).join(', ')})`;
     }
     const clauses: string[] = [];
 
@@ -561,10 +607,10 @@ export class Repository<T extends Table> {
 
     if (options.equal !== undefined) {
       if (Array.isArray(options.equal)) {
-        clauses.push(
-          `${attr} IN ${this.handleArrayClause(options.equal)}`,
-          // `${attr} IN (${options.equal.map((item) => (typeof item === 'string' ? `'${item.replace(/'/g, "''")}'` : item)).join(', ')})`,
-        );
+        if (options.equal.length === 0) {
+          return ``;
+        }
+        clauses.push(`${attr} IN ${this.handleArrayClause(options.equal)}`);
       } else {
         clauses.push(
           `${attr} = ${typeof options.equal === 'string' ? `'${options.equal.replace(/'/g, "''")}'` : options.equal}`,
@@ -575,7 +621,6 @@ export class Repository<T extends Table> {
       if (Array.isArray(options.notEqual)) {
         clauses.push(
           `${attr} NOT IN ${this.handleArrayClause(options.notEqual)}`,
-          // `${attr} NOT IN (${options.notEqual.map((item) => (typeof item === 'string' ? `'${item.replace(/'/g, "''")}'` : item)).join(', ')})`,
         );
       } else {
         clauses.push(
@@ -598,9 +643,6 @@ export class Repository<T extends Table> {
     if (options.like !== undefined) {
       clauses.push(`${attr} LIKE '%${options.like.replace(/'/g, "''")}%'`);
     }
-    if (options.orderBy) {
-      clauses.push(`ORDER BY ${attr} ${options.orderBy}`);
-    }
 
     return clauses.join(' AND ');
   }
@@ -620,7 +662,11 @@ export class Repository<T extends Table> {
       })
       .join(', ');
 
-    return setClauses;
+    if (setClauses === '') {
+      return '';
+    }
+
+    return `SET ${setClauses}`;
   }
 
   private escapeSqlValue(value: any): string {

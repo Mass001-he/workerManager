@@ -23,20 +23,18 @@ const App = () => {
 
   useEffect(() => {
     const boot = async () => {
-      const node = Node.getInstance(sharedWorker, {
-        onElection: async (service) => {
-          console.log('onElection', service);
-          await registerService(service);
-        },
-      });
-
-      // nodeManager -> tab1 -> Node . onElection ->
-
+      const node = Node.getInstance(sharedWorker);
       const result = await node.takeOffice();
       console.log('result===>', result);
       if (result) {
         await registerService(node.service);
         node.upperReady();
+      } else {
+        node.setOptions({
+          onElection: async (service) => {
+            await registerService(service);
+          },
+        });
       }
 
       setHasLeader(true);

@@ -70,6 +70,10 @@ export class Node {
     this.init();
   }
 
+  public setOptions(options: NodeOptions) {
+    this.options = { ...this.options, ...options };
+  }
+
   private init = () => {
     if (this.isInit) {
       return;
@@ -184,7 +188,7 @@ export class Node {
       }
       this.promiseMap.delete(reqId);
     }
-  }
+  };
 
   private handleTasks(tasks: any[]) {
     tasks.forEach(async (task) => {

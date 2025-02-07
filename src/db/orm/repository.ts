@@ -465,10 +465,21 @@ export class Repository<T extends Table> {
 
   removeMany(
     conditions: ColumnQuery<T['columns']>,
-    isHardDelete: boolean = false,
+    options: {
+      isHardDelete?: boolean;
+      fast?: boolean;
+    } = {
+      isHardDelete: true,
+      fast: true,
+    },
   ) {
+    if (options.fast) {
+      return this._fastRemove(conditions, {
+        isHardDelete: options.isHardDelete,
+      });
+    }
     return this._remove(conditions, {
-      isHardDelete,
+      isHardDelete: options.isHardDelete,
     });
   }
 

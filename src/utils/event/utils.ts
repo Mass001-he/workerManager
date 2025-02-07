@@ -1,12 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unsafe-function-type */
-import { Emitter, type EmitterOptions } from "./emitter.js";
+import { Emitter, type EmitterOptions } from './emitter.js';
 import type {
   DOMEventEmitter,
   IDisposable,
   IEvent,
   NodeEventEmitter,
-} from "./types.js";
+} from './types.js';
 
 /**
  * Turn a function that implements dispose into an {@link IDisposable}.
@@ -23,7 +23,6 @@ export function toDisposable(fn: () => void): IDisposable {
   return self;
 }
 
-
 /**
  * @description 生成一个只调用一次的函数, 该函数只会调用一次
  * @description_en Given a function, returns a function that is only calling that function once.
@@ -31,7 +30,7 @@ export function toDisposable(fn: () => void): IDisposable {
 export function createSingleCallFunction<T extends Function>(
   this: unknown,
   fn: T,
-  fnDidRunCallback?: () => void
+  fnDidRunCallback?: () => void,
 ): T {
   // eslint-disable-next-line @typescript-eslint/no-this-alias
   const _this = this;
@@ -109,7 +108,7 @@ export function fromPromise<T>(promise: Promise<T>): IEvent<T | undefined> {
       },
       () => {
         result.fire(undefined);
-      }
+      },
     )
     .finally(() => {
       result.dispose();
@@ -125,7 +124,7 @@ export function fromPromise<T>(promise: Promise<T>): IEvent<T | undefined> {
 export function fromDOMEventEmitter<T>(
   emitter: DOMEventEmitter,
   eventName: string,
-  map: (...args: any[]) => T = (id) => id
+  map: (...args: any[]) => T = (id) => id,
 ): IEvent<T> {
   const fn = (...args: any[]) => result.fire(map(...args));
   const onFirstListenerAdd = () => emitter.addEventListener(eventName, fn);
@@ -144,7 +143,7 @@ export function fromDOMEventEmitter<T>(
 export function fromNodeEventEmitter<T>(
   emitter: NodeEventEmitter,
   eventName: string,
-  map: (...args: any[]) => T = (id) => id
+  map: (...args: any[]) => T = (id) => id,
 ): IEvent<T> {
   const fn = (...args: any[]) => result.fire(map(...args));
   const onFirstListenerAdd = () => emitter.on(eventName, fn);
@@ -180,16 +179,16 @@ export function forward<T>(from: IEvent<T>, to: Emitter<T>): IDisposable {
 export function runAndSubscribe<T>(
   event: IEvent<T>,
   handler: (e: T) => unknown,
-  initial: T
-): IDisposable;
-export function runAndSubscribe<T>(
-  event: IEvent<T>,
-  handler: (e: T | undefined) => unknown
+  initial: T,
 ): IDisposable;
 export function runAndSubscribe<T>(
   event: IEvent<T>,
   handler: (e: T | undefined) => unknown,
-  initial?: T
+): IDisposable;
+export function runAndSubscribe<T>(
+  event: IEvent<T>,
+  handler: (e: T | undefined) => unknown,
+  initial?: T,
 ): IDisposable {
   handler(initial);
   return event((e) => handler(e));
@@ -209,21 +208,21 @@ export function debounce<T>(
   merge: (last: T | undefined, event: T) => T,
   delay?: number,
   leading?: boolean,
-  flushOnListenerRemove?: boolean
+  flushOnListenerRemove?: boolean,
 ): IEvent<T>;
 export function debounce<I, O>(
   event: IEvent<I>,
   merge: (last: O | undefined, event: I) => O,
   delay?: number,
   leading?: boolean,
-  flushOnListenerRemove?: boolean
+  flushOnListenerRemove?: boolean,
 ): IEvent<O>;
 export function debounce<I, O>(
   event: IEvent<I>,
   merge: (last: O | undefined, event: I) => O,
   delay = 100,
   leading = false,
-  flushOnListenerRemove = true
+  flushOnListenerRemove = true,
 ): IEvent<O> {
   let subscription: IDisposable;
   let output: O | undefined = undefined;
@@ -269,4 +268,83 @@ export function debounce<I, O>(
   const emitter = new Emitter<O>(options);
 
   return emitter.event;
+}
+
+/**
+ * @description 安全的获取是否运行在安全上下文(https)中,在非浏览器环境下会抛出错误，可通过restrain参数控制是否抛出错误
+ * @description_en Safely get whether running in a secure context (https), will throw an error in non-browser environments，can control whether to throw an error through the restrain parameter
+ * @param [restrain=true] - 是否抑制错误,默认为true
+ * @param [restrain=true] - Whether to suppress errors, default is true
+ * @returns {boolean}
+ */
+export function safeIsSecureContext(restrain = true): boolean {
+  if (self.isSecureContext !== undefined) {
+    return self.isSecureContext;
+  }
+  // Compatibility with older browsers
+  if (self.location) {
+    if (self.location.protocol === 'https:') {
+      return true;
+    } else if (self.location.protocol === 'http:') {
+      return false;
+    }
+  }
+  if (restrain === false) {
+    throw new Error(
+      `Unable to determine if running in a secure context, if you are running in a Node.js environment, you can ignore this error`,
+    );
+  }
+  return false;
+}
+
+/**
+ * @description 包含随机生成的、长度为 36 字符的第四版 UUID 字符串。
+ * @description_en Contains a randomly generated, 36-character, version 4 UUID string.
+ */
+export function safeRandomUUID() {
+  //@ts-ignore
+  if (typeof self.crypto !== 'undefined' && safeIsSecureContext()) {
+    if (typeof self.crypto.randomUUID === 'function') {
+      return crypto.randomUUID();
+    }
+    if (typeof self.crypto.getRandomValues === 'function') {
+      const buffer = new Uint8Array(16);
+      crypto.getRandomValues(buffer);
+      // 设置UUID版本（4）和变体（10xx）
+      buffer[6] = (buffer[6] & 0x0f) | 0x40; // Version 4
+      buffer[8] = (buffer[8] & 0x3f) | 0x80; // Variant 10xx
+      const hexArr = new Array(16);
+      for (let i = 0; i < 16; i++) {
+        hexArr[i] = buffer[i].toString(16).padStart(2, '0');
+      }
+      return (
+        hexArr[0] +
+        hexArr[1] +
+        hexArr[2] +
+        hexArr[3] +
+        '-' +
+        hexArr[4] +
+        hexArr[5] +
+        '-' +
+        hexArr[6] +
+        hexArr[7] +
+        '-' +
+        hexArr[8] +
+        hexArr[9] +
+        '-' +
+        hexArr[10] +
+        hexArr[11] +
+        hexArr[12] +
+        hexArr[13] +
+        hexArr[14] +
+        hexArr[15]
+      );
+    }
+  }
+
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
 }

@@ -3,9 +3,18 @@ import { Node } from './elect/node';
 import { registerService } from './service';
 import { SQLView } from './sqlView';
 import './index.css';
+import { WebRemoteEmitter } from './utils/event/remoteEmitter';
 
 const sharedWorker = new SharedWorker(new URL('./worker.ts', import.meta.url), {
   name: 'vertexWorker',
+});
+
+const testEmitter = new WebRemoteEmitter<string>({
+  eventName: 'testEmitter',
+  syncData: true,
+});
+testEmitter.event((e) => {
+  console.log('testEmitter', e);
 });
 
 const App = () => {
@@ -89,6 +98,20 @@ const App = () => {
         <button onClick={sendMessage}>有返回值发送消息 </button>
         <button onClick={broadcast}>广播</button>
         <button onClick={watchBroadcast}>监听广播</button>
+        <button
+          onClick={() => {
+            testEmitter.fire('test');
+          }}
+        >
+          测试RemoteEmitter
+        </button>
+        <button
+          onClick={() => {
+            testEmitter.dispose();
+          }}
+        >
+          销毁RemoteEmitter
+        </button>
       </div>
       <div
         style={{

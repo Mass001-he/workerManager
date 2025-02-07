@@ -158,7 +158,11 @@ export class Node {
     });
   }
 
-  public takeOffice = async () => {
+  /**
+   * 直接申请任职Leader,成功返回true,失败返回false。`taskOffice`上任时将不会触发`onElection`回调
+   * @returns {Promise<boolean>}
+   */
+  public takeOffice = async (): Promise<boolean> => {
     const res = await this._request({
       type: MessageType.Request,
       data: {
@@ -168,7 +172,7 @@ export class Node {
     return res.data.result as boolean;
   };
 
-  private onResponse(payload: ResponsePayload) {
+  private onResponse = (payload: ResponsePayload) => {
     this.logger.info('onResponse', payload).print();
     const { success, reqId } = payload;
     const mHandlerPromiser = this.promiseMap.get(reqId);

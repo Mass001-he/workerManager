@@ -34,10 +34,6 @@ export class WebRemoteEmitter<T = void> {
 
   constructor(options: WebRemoteEmitterOptions) {
     const { eventName, syncData } = options;
-    console.log(`WebRemoteEmitter:Constructor`, {
-      id: this.id,
-      eventName,
-    });
     this.eventName = eventName;
     this.syncData = syncData || false;
     this.dataChannel = new BroadcastChannel(`nc_data_${eventName}`);
@@ -47,13 +43,13 @@ export class WebRemoteEmitter<T = void> {
 
   private _setupMessageListener() {
     this.dataChannel.onmessage = (event) => {
-      this.handleMessage(event.data);
+      this._handleMessage(event.data);
     };
     this.innerDataChannel.onmessage = (event) => {
-      this.handleInnerMessage(event.data);
+      this._handleInnerMessage(event.data);
     };
   }
-  private handleInnerMessage = (message: InnerMessage) => {
+  private _handleInnerMessage = (message: InnerMessage) => {
     switch (message.type) {
       case InnerMessageType.RemoteEmitterDispose:
         this.dispose(false);
@@ -63,7 +59,7 @@ export class WebRemoteEmitter<T = void> {
         throw new Error('Unknown message type');
     }
   };
-  private handleMessage = (data: T) => {
+  private _handleMessage = (data: T) => {
     this.emitter.fire(data);
   };
   public get event(): IEvent<T> {

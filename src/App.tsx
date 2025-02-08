@@ -38,6 +38,7 @@ const App = () => {
       }
 
       setHasLeader(true);
+      (window as any).node = node;
       setNode(node);
     };
     boot();

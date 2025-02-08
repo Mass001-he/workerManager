@@ -116,3 +116,13 @@ export function diffStringArrayRecord<T extends Record<string, string[]>>(
   }
   return result;
 }
+
+export function escapeSqlValue(value: any[]): string[] {
+  return value.map((v) => {
+    if (typeof v === 'string') {
+      // 处理字符串中的单引号
+      return `'${v.replace(/'/g, "''")}'`;
+    }
+    return v;
+  });
+}

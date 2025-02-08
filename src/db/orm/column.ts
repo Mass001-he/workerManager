@@ -168,7 +168,7 @@ class ColumnText extends ColumnType<string> {
 
   verify(value: any) {
     const messages = [...super.verify(value)];
-    if (typeof value !== 'string') {
+    if (typeof value !== 'string' && value !== undefined && value !== null) {
       messages.push('value must be string');
     }
     if (this._max && value.length > this._max) {
@@ -209,7 +209,7 @@ export class ColumnInteger extends ColumnType<number> {
 
   verify(value: any) {
     const messages = [...super.verify(value)];
-    if (typeof value !== 'number') {
+    if (typeof value !== 'number' && value !== undefined && value !== null) {
       messages.push('value must be number');
     }
     if (this._max && value > this._max) {
@@ -233,7 +233,7 @@ class ColumnBoolean extends ColumnType<boolean> {
 
   verify(value: any) {
     const messages = [...super.verify(value)];
-    if (typeof value !== 'boolean') {
+    if (typeof value !== 'boolean' && value !== undefined && value !== null) {
       messages.push('value must be boolean');
     }
     return messages;
@@ -248,7 +248,7 @@ export class ColumnDate extends ColumnType<Date> {
   }
   verify(value: any): string[] {
     const messages = [...super.verify(value)];
-    if (!(value instanceof Date)) {
+    if (!(value instanceof Date) && value !== undefined && value !== null) {
       messages.push('value must be Date');
     }
     return messages;

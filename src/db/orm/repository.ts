@@ -563,6 +563,7 @@ export class Repository<T extends Table> {
       ?.map(([key, options]) => {
         return this.optionsClauses(key, options);
       })
+      .filter(Boolean)
       .join(' AND ');
     this.logger.info(`whereClauses: ${whereClauses}`);
     if (!whereClauses) {
@@ -601,38 +602,76 @@ export class Repository<T extends Table> {
       return `${attr} = ${typeof options === 'string' ? `'${options.replace(/'/g, "''")}'` : options}`;
     }
     if (Array.isArray(options)) {
-      if (options.length === 0) {
-        return ``;
+      let str = '';
+      // 判断options数组中是否包含null或undefined
+      if (options.some((item) => item === null || item === undefined)) {
+        str = `${attr} IS NULL`;
       }
-      return `${attr} IN ${this.handleArrayClause(options)}`;
+
+      // 排除options数组中的null和undefined
+      const newOptions = options.filter(
+        (item) => item !== null && item !== undefined,
+      ) as string[] | number[];
+
+      if (newOptions.length === 0) {
+        return str;
+      }
+
+      return str
+        ? `${str} OR ${attr} IN ${this.handleArrayClause(newOptions)}`
+        : `${attr} IN ${this.handleArrayClause(newOptions)}`;
     }
     const clauses: string[] = [];
+    const orClauses: string[] = [];
 
-    if (options.equal === null) {
+    if (
+      options.hasOwnProperty('equal') &&
+      (options.equal === null || options.equal === undefined)
+    ) {
       clauses.push(`${attr} IS NULL`);
     }
 
-    if (options.notEqual === null) {
+    if (
+      options.hasOwnProperty('notEqual') &&
+      (options.notEqual === null || options.notEqual === undefined)
+    ) {
       clauses.push(`${attr} IS NOT NULL`);
     }
 
-    if (options.equal !== undefined) {
+    if (options.equal !== undefined && options.equal !== null) {
       if (Array.isArray(options.equal)) {
-        if (options.equal.length === 0) {
-          return ``;
+        // 判断options.equal数组中是否包含null或undefined
+        if (options.equal.some((item) => item === null || item === undefined)) {
+          orClauses.push(`${attr} IS NULL`);
         }
-        clauses.push(`${attr} IN ${this.handleArrayClause(options.equal)}`);
+        // 排除options.equal数组中的null和undefined
+        const newOptions = options.equal.filter(
+          (item) => item !== null && item !== undefined,
+        ) as string[] | number[];
+        if (newOptions.length !== 0) {
+          clauses.push(`${attr} IN ${this.handleArrayClause(newOptions)}`);
+        }
       } else {
         clauses.push(
           `${attr} = ${typeof options.equal === 'string' ? `'${options.equal.replace(/'/g, "''")}'` : options.equal}`,
         );
       }
     }
-    if (options.notEqual !== undefined) {
+    if (options.notEqual !== undefined && options.notEqual !== null) {
       if (Array.isArray(options.notEqual)) {
-        clauses.push(
-          `${attr} NOT IN ${this.handleArrayClause(options.notEqual)}`,
-        );
+        // 判断options.notEqual数组中是否包含null或undefined
+        if (
+          options.notEqual.some((item) => item === null || item === undefined)
+        ) {
+          orClauses.push(`${attr} IS NOT NULL`);
+        }
+        // 排除options.notEqual数组中的null和undefined
+        const newOptions = options.notEqual.filter(
+          (item) => item !== null && item !== undefined,
+        ) as string[] | number[];
+        if (newOptions.length !== 0) {
+          clauses.push(`${attr} NOT IN ${this.handleArrayClause(newOptions)}`);
+        }
       } else {
         clauses.push(
           `${attr} != ${typeof options.notEqual === 'string' ? `'${options.notEqual.replace(/'/g, "''")}'` : options.notEqual}`,
@@ -655,7 +694,26 @@ export class Repository<T extends Table> {
       clauses.push(`${attr} LIKE '%${options.like.replace(/'/g, "''")}%'`);
     }
 
-    return clauses.join(' AND ');
+    // 拼接当前 attr 的所有 and 条件
+    const currentAttrClauses = clauses.join(' AND ');
+    // 拼接当前 attr 的所有 or 条件
+    const currentAttrOrClauses = orClauses.join(' OR ');
+    // 如果当前 attr 的所有条件和所有 or 条件都为空，则返回空字符串
+    if (!currentAttrClauses && !currentAttrOrClauses) {
+      return '';
+    }
+    // 如果当前 attr 的所有条件和所有 or 条件都不为空，则返回当前 attr 的所有条件和所有 or 条件的拼接结果
+    if (currentAttrClauses && currentAttrOrClauses) {
+      return `(${currentAttrClauses} OR ${currentAttrOrClauses})`;
+    }
+    // 如果当前 attr 的所有条件不为空，则返回当前 attr 的所有条件
+    if (currentAttrClauses) {
+      return `${currentAttrClauses}`;
+    }
+    // 如果当前 attr 的所有 or 条件不为空，则返回当前 attr 的所有 or 条件
+    if (currentAttrOrClauses) {
+      return `${currentAttrOrClauses}`;
+    }
   }
 
   /**

@@ -124,6 +124,10 @@ export interface NodeOptions {
    * @default true
    */
   broadcastSelf?: boolean;
-
+  /**
+   * 收到上任通知，会在此函数结束后上任,内部会发送`UpperReady`通知
+   * @param service
+   * @returns
+   */
   onElection?: (service: Service) => void | Promise<void>;
 }

@@ -36,6 +36,11 @@ export class Council {
   }
 
   private changeLeader(leader: string) {
+    if (leader === undefined) {
+      console.trace('Change leader: leader is undefined');
+      debugger;
+      return;
+    }
     this.logger.info(`Change leader: ${leader}`).print();
 
     this.leader = leader;
@@ -55,6 +60,7 @@ export class Council {
       if (this.campaigners.length === 0 && !this.leader) {
         throw new Error('Fatal mistake. No leader and no candidate');
       }
+      return;
     }
     const leader = this.campaigners.pop()!;
     this.changeLeader(leader);
@@ -136,7 +142,8 @@ export class Council {
    */
   public takeOffice(candidate: string) {
     if (this.leader === undefined) {
-      this.changeLeader(candidate);
+      this.logger.info('Take office', candidate).print();
+      this.leader = candidate;
       return true;
     }
     return false;

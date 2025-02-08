@@ -70,6 +70,10 @@ export class Node {
     this.init();
   }
 
+  public setOptions(options: NodeOptions) {
+    this.options = { ...this.options, ...options };
+  }
+
   private init = () => {
     if (this.isInit) {
       return;
@@ -98,19 +102,26 @@ export class Node {
     this.isInit = true;
   };
 
-  async completionToElection() {
+  private async completionToElection() {
     this.logger.info('completionToElection').print();
     this.#isLeader = true;
     // this.service = new Service();
     this.handleTasks(this._cacheTask);
     this._cacheTask = [];
     await this.options.onElection?.(this.service);
+    this.upperReady();
+    this.logger.info('Election success').print();
+  }
+
+  /**
+   * 准备就绪，通知`Scheduler`可以开始工作了。调用后，`Scheduler`会开始派发任务
+   */
+  upperReady() {
     this.post({
       data: {
         action: NodeAction.UpperReady,
       },
     });
-    this.logger.info('Election success').print();
   }
 
   private register() {
@@ -151,7 +162,11 @@ export class Node {
     });
   }
 
-  public takeOffice = async () => {
+  /**
+   * 直接申请任职Leader,成功返回true,失败返回false。`taskOffice`上任时将不会触发`onElection`回调
+   * @returns {Promise<boolean>}
+   */
+  public takeOffice = async (): Promise<boolean> => {
     const res = await this._request({
       type: MessageType.Request,
       data: {
@@ -161,7 +176,7 @@ export class Node {
     return res.data.result as boolean;
   };
 
-  private onResponse(payload: ResponsePayload) {
+  private onResponse = (payload: ResponsePayload) => {
     this.logger.info('onResponse', payload).print();
     const { success, reqId } = payload;
     const mHandlerPromiser = this.promiseMap.get(reqId);
@@ -173,7 +188,7 @@ export class Node {
       }
       this.promiseMap.delete(reqId);
     }
-  }
+  };
 
   private handleTasks(tasks: any[]) {
     tasks.forEach(async (task) => {

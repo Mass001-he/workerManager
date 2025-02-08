@@ -3,32 +3,40 @@ import { Node } from './elect/node';
 import { registerService } from './service';
 import { SQLView } from './sqlView';
 import './index.css';
+import { WebRemoteEmitter } from './utils/event/remoteEmitter';
 
 const sharedWorker = new SharedWorker(new URL('./worker.ts', import.meta.url), {
   name: 'vertexWorker',
 });
 
+const testEmitter = new WebRemoteEmitter<string>({
+  eventName: 'testEmitter',
+  syncData: true,
+});
+testEmitter.event((e) => {
+  console.log('testEmitter', e);
+});
+
 const App = () => {
   const [hasLeader, setHasLeader] = useState(false);
   const [node, setNode] = useState<Node | null>(null);
-  const [value, setValue] = useState(''); // 删除ID
 
   useEffect(() => {
     const boot = async () => {
-      const node = Node.getInstance(sharedWorker, {
-        onElection: async (service) => {
-          console.log('onElection', service);
-          // await registerService(node.service);
-        },
-      });
-
-      // nodeManager -> tab1 -> Node . onElection ->
-
+      const node = Node.getInstance(sharedWorker);
       const result = await node.takeOffice();
       console.log('result===>', result);
       if (result) {
         await registerService(node.service);
+        node.upperReady();
+      } else {
+        node.setOptions({
+          onElection: async (service) => {
+            await registerService(service);
+          },
+        });
       }
+
       setHasLeader(true);
       (window as any).node = node;
       setNode(node);
@@ -59,22 +67,6 @@ const App = () => {
     });
   };
 
-  const deleteHandle = async (isHardDelete: boolean = false) => {
-    if (!value) {
-      return alert('请输入ID');
-    }
-    try {
-      const res = await node?.request('deleteMsg', {
-        data: {
-          deleteName: value.split(','),
-          isHardDelete,
-        },
-      });
-      console.log('deleteHandle', res);
-    } catch (error) {
-      console.log('error===>', error);
-    }
-  };
   if (!node || !hasLeader) {
     return null;
   }
@@ -97,40 +89,27 @@ const App = () => {
         </button>
         <button
           onClick={() => {
-            deleteHandle(true);
+            node.request('test', {});
           }}
         >
-          硬删name
+          test
         </button>
-        <button onClick={() => deleteHandle()}>软删除name</button>
-        <input
-          type="text"
-          placeholder="删除Name"
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-        />
         <button onClick={sendMessage}>有返回值发送消息 </button>
         <button onClick={broadcast}>广播</button>
         <button onClick={watchBroadcast}>监听广播</button>
         <button
-          onClick={async () => {
-            const res = await node?.request('search', [
-              {
-                name: {
-                  equal: ['name1', 'name2', 'name3', 'name4'],
-                  orderBy: 'DESC',
-                },
-                age: {
-                  gt: 0,
-                  orderBy: 'ASC',
-                },
-                abc: 1,
-              },
-            ]);
-            debugger;
+          onClick={() => {
+            testEmitter.fire('test');
           }}
         >
-          获取部分数据
+          测试RemoteEmitter
+        </button>
+        <button
+          onClick={() => {
+            testEmitter.dispose();
+          }}
+        >
+          销毁RemoteEmitter
         </button>
       </div>
       <div

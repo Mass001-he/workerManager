@@ -26,6 +26,10 @@ export class Service {
     this.serverMap.set(serviceName, handle);
   }
 
+  hasService() {
+    return this.serverMap.size > 0;
+  }
+
   destroy() {
     this.logger.info('destroy').print();
     this._onDestroy.fire();

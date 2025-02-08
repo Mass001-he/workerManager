@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unsafe-function-type */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { Disposable, type IEvent, type IEventDeliveryQueue } from "./types.js";
-import { toDisposable } from "./utils.js";
+import { Disposable, type IEvent, type IEventDeliveryQueue } from './types.js';
+import { toDisposable } from './utils.js';
 
 /**
  * @description 事件交付队列的私有实现
@@ -68,21 +68,21 @@ type ListenerOrListeners<T> =
   | (ListenerContainer<T> | undefined)[]
   | ListenerContainer<T>;
 
-const forEachListener = <T>(
-  listeners: ListenerOrListeners<T>,
-  fn: (c: ListenerContainer<T>) => void
-) => {
-  if (listeners instanceof UniqueContainer) {
-    fn(listeners);
-  } else {
-    for (let i = 0; i < listeners.length; i++) {
-      const l = listeners[i];
-      if (l) {
-        fn(l);
-      }
-    }
-  }
-};
+// const forEachListener = <T>(
+//   listeners: ListenerOrListeners<T>,
+//   fn: (c: ListenerContainer<T>) => void
+// ) => {
+//   if (listeners instanceof UniqueContainer) {
+//     fn(listeners);
+//   } else {
+//     for (let i = 0; i < listeners.length; i++) {
+//       const l = listeners[i];
+//       if (l) {
+//         fn(l);
+//       }
+//     }
+//   }
+// };
 
 export interface EmitterOptions {
   /**
@@ -194,12 +194,12 @@ export class Emitter<T = void> {
     const listeners = this._listeners as (ListenerContainer<T> | undefined)[];
     const idx = listeners.indexOf(container);
     if (idx === -1) {
-      console.error("EmitterErrorInfo", {
+      console.error('EmitterErrorInfo', {
         size: this._size,
         listeners: JSON.stringify(this._listeners),
       });
       throw new Error(
-        "Emitter: Attempted to dispose unknown listener, listener not found"
+        'Emitter: Attempted to dispose unknown listener, listener not found',
       );
     }
     this._size--;
@@ -211,7 +211,7 @@ export class Emitter<T = void> {
    */
   private _deliver(
     listener: undefined | UniqueContainer<(data: T) => void>,
-    data: T
+    data: T,
   ): void {
     if (listener === undefined) {
       return;

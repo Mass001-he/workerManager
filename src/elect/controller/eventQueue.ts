@@ -33,16 +33,25 @@ export class EventQueue<T = any> {
   /**
    * @description 添加任务到队列,等待执行
    */
-  public enqueue(task: T) {
-    this.logger.info('enqueue', task).print();
+  public enqueue(task: T, dispatch = false) {
+    this.logger.info('enqueue', dispatch, task).print();
     this.eventQueue.push(task);
+    if (dispatch) {
+      this.dispatch();
+    }
+  }
+
+  public dispatch() {
     if (this.isDispatching === false) {
       this.isDispatching = true;
-      setTimeout(() => this.queueLoop());
+      setTimeout(() => this.queueLoop(), 10);
     }
   }
 
   private queueLoop() {
+    if (this.eventQueue.length === 0) {
+      this.isDispatching = false;
+    }
     if (this.isLoopScheduled) {
       return;
     }
@@ -89,19 +98,13 @@ export class EventQueue<T = any> {
       throw new Error('No listener for active task');
     }
     if (this.activeTasks.length === 0) {
+      this.logger.info('fireActiveTask, activeTasks is empty').print();
       return;
     }
     this._onTaskActivation.fire({
       tasks: this.activeTasks,
     });
   };
-
-  /**
-   * @description 重新激活任务
-   */
-  public reActivation() {
-    this.fireActiveTask();
-  }
 
   public destroy() {
     this.logger.info('destroy').print();

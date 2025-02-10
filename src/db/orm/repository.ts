@@ -727,6 +727,9 @@ export class Repository<T extends Table> {
         if (typeof value === 'string') {
           return `${key} = '${(value as string).replace(/'/g, "''")}'`; // 处理字符串中的单引号
         }
+        if (value === null || value === undefined) {
+          return `${key} = NULL`;
+        }
         return `${key} = ${value}`;
       })
       .join(', ');

@@ -578,7 +578,7 @@ export class Repository<T extends Table> {
 
   private handleArrayClause(options: string[] | number[]) {
     if (options.length === 0) {
-      return '';
+      return '()';
     }
     return `(${options.map((item) => (typeof item === 'string' ? `'${item.replace(/'/g, "''")}'` : item)).join(', ')})`;
   }
@@ -613,10 +613,6 @@ export class Repository<T extends Table> {
         (item) => item !== null && item !== undefined,
       ) as string[] | number[];
 
-      if (newOptions.length === 0) {
-        return str;
-      }
-
       return str
         ? `${str} OR ${attr} IN ${this.handleArrayClause(newOptions)}`
         : `${attr} IN ${this.handleArrayClause(newOptions)}`;
@@ -648,9 +644,9 @@ export class Repository<T extends Table> {
         const newOptions = options.equal.filter(
           (item) => item !== null && item !== undefined,
         ) as string[] | number[];
-        if (newOptions.length !== 0) {
-          clauses.push(`${attr} IN ${this.handleArrayClause(newOptions)}`);
-        }
+        // if (newOptions.length !== 0) {
+        clauses.push(`${attr} IN ${this.handleArrayClause(newOptions)}`);
+        // }
       } else {
         clauses.push(
           `${attr} = ${typeof options.equal === 'string' ? `'${options.equal.replace(/'/g, "''")}'` : options.equal}`,
@@ -669,9 +665,9 @@ export class Repository<T extends Table> {
         const newOptions = options.notEqual.filter(
           (item) => item !== null && item !== undefined,
         ) as string[] | number[];
-        if (newOptions.length !== 0) {
-          clauses.push(`${attr} NOT IN ${this.handleArrayClause(newOptions)}`);
-        }
+        // if (newOptions.length !== 0) {
+        clauses.push(`${attr} NOT IN ${this.handleArrayClause(newOptions)}`);
+        // }
       } else {
         clauses.push(
           `${attr} != ${typeof options.notEqual === 'string' ? `'${options.notEqual.replace(/'/g, "''")}'` : options.notEqual}`,

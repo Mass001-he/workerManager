@@ -1,4 +1,3 @@
-import { Err, Ok, type Result } from '@wwog/good-design/rust'
 import type {
   FromClause,
   GroupByClause,
@@ -110,15 +109,15 @@ export class QueryBuilder<T> implements IQueryBuilderCommonMethods<T> {
     this.description.groupByClauses.push({ raw: { sql } })
     return this
   }
-  toSQL(): Result<string, Error> {
+  toSQL(): string {
     try {
-      return Ok(this.builder(this.description))
+      return this.builder(this.description)
     } catch (error) {
       if (error instanceof Error) {
-        return Err(new Error('Failed to generate SQL: ' + error.message))
+        throw new Error('Failed to generate SQL: ' + error.message)
       }
       console.error(error)
-      return Err(new Error('Failed to generate SQL'))
+      throw new Error('Failed to generate SQL')
     }
   }
 }

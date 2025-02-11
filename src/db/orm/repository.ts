@@ -34,7 +34,7 @@ export interface QueryClauses {
 export type QueryOneClauses = Omit<QueryClauses, 'limit'>;
 
 type ColumnQuery<T extends Record<string, ColumnType>> = {
-  [K in keyof T]?: ColClause | T[K]['__type'];
+  [K in keyof T]?: ColClause | T[K]['__type'] | T[K]['__type'][];
 };
 
 export class Repository<T extends Table> {
@@ -109,14 +109,22 @@ export class Repository<T extends Table> {
   insertMany(items: ColumnInfer<T['columns']>[], uniqueKey?: string) {
     this.validateColumns(items);
 
+    if (items.length === 0) {
+      return;
+    }
+
     const columns = this.getColumn(items[0]);
 
     // 构建插入 SQL 语句
     const valuesList = items
       .map((item) => {
-        const values = Object.values(item).map((value) => {
+        const values = columns.map((k) => {
+          const value = item[k as keyof typeof item];
           if (typeof value === 'string') {
             return `'${(value as string).replace(/'/g, "''")}'`; // 处理字符串中的单引号
+          }
+          if (value === null || value === undefined) {
+            return 'NULL';
           }
           return value;
         });
@@ -127,16 +135,17 @@ export class Repository<T extends Table> {
     const primaryKey = Object.keys(this.table.columns).find(
       (k) => this.table.columns[k]._primary,
     );
-    let sql = `INSERT INTO ${this.table.name} (${columns}) VALUES ${valuesList}`;
+    let sql = `INSERT INTO ${this.table.name} (${columns.join(', ')}) VALUES ${valuesList}`;
     const uKey = primaryKey || uniqueKey;
     if (uKey) {
-      let allKeys = new Set(columns.split(', '));
+      let allKeys = new Set(columns);
       allKeys.delete(uKey);
       if (allKeys.size !== 0) {
         const updateKeys = [...allKeys];
         sql = `${sql} ON CONFLICT(${uKey}) DO UPDATE SET ${updateKeys.map((k) => `${k}=excluded.${k}`).join(', ')};`;
       }
     }
+    this.logger.info('insertMany sql ===>', sql).print();
     // 执行插入操作
     return this.server.exec(sql);
   }
@@ -145,12 +154,17 @@ export class Repository<T extends Table> {
     conditions: ColumnQuery<T['columns']>,
     queryClauses: QueryClauses = {},
   ): ColumnInfer<T['columns']>[] {
-    const { limit, offset } = queryClauses;
     // 构建 WHERE 子句
     const whereClauses = this.buildWhereClause(conditions);
+    // 构建 ORDER BY 子句
+    const orderByClauses = this.buildOrderByClause(conditions);
 
-    const sqlBase = `SELECT rowid, * FROM ${this.table.name} WHERE ${whereClauses} AND _deleteAt IS NULL`;
-    const sql = limit ? sqlBase + ` LIMIT ${limit};` : sqlBase + `;`;
+    // 构建 LIMIT 子句
+    const limitClause = this.buildLimitClause(queryClauses);
+
+    const sql = `SELECT rowid, * FROM ${this.table.name} ${whereClauses} ${orderByClauses} ${limitClause}`;
+
+    this.logger.info('query sql ===>', sql).print();
     const result = this.server.exec(sql) || [];
     return result as unknown as ColumnInfer<T['columns']>[];
   }
@@ -168,8 +182,12 @@ export class Repository<T extends Table> {
 
   queryMany(
     conditions: ColumnQuery<T['columns']>,
+    queryClauses?: QueryClauses,
   ): ColumnInfer<T['columns']>[] {
-    return this._query(conditions);
+    return this._query(conditions, {
+      limit: queryClauses?.limit,
+      offset: queryClauses?.offset,
+    });
   }
 
   /**
@@ -184,7 +202,7 @@ export class Repository<T extends Table> {
     options: {
       fast?: boolean;
     } = {
-      fast: false,
+      fast: true,
     },
   ) {
     const { fast } = options;
@@ -199,6 +217,57 @@ export class Repository<T extends Table> {
     }
   }
 
+  bulkPut(newData: ColumnInfer<T['columns']>[], uniqueKey?: string) {
+    const primaryKey =
+      Object.keys(this.columns).find((k) => this.columns[k]._primary) ||
+      uniqueKey;
+
+    if (!primaryKey) {
+      throw new Error('No primary key found');
+    }
+
+    const ids = newData.map(
+      (item) => item[primaryKey as keyof ColumnInfer<T['columns']>],
+    );
+
+    const searchData = {
+      [primaryKey]: ids,
+    } as ColumnQuery<T['columns']>;
+
+    // 根据 primaryKey 查询满足 newDate 中的数据
+    const res = this._query(searchData);
+    if (res.length === 0) {
+      this.logger.info('No record found').print();
+      return false;
+    }
+    // 根据 newData 和 res 构建更新sql语句
+    const updateSql = this.buildUpdateSql(res, newData, primaryKey);
+
+    this.logger.info('bulkPut sql ===>', updateSql).print();
+    this.server.exec(updateSql);
+    // const changes = this.server.exec('SELECT changes() as changes;');
+    return res.map(
+      (item) => item[primaryKey as keyof ColumnInfer<T['columns']>],
+    );
+  }
+
+  private buildUpdateSql(
+    res: ColumnInfer<T['columns']>[],
+    newData: ColumnInfer<T['columns']>[],
+    primaryKey: string,
+  ): string {
+    const updateClauses = res.map((row, index) => {
+      const setClauses = Object.entries(newData[index])
+        .map(([key, value]) =>
+          key !== primaryKey ? `${key} = ${this.escapeSqlValue(value)}` : '',
+        )
+        .filter(Boolean)
+        .join(', ');
+      return `UPDATE ${this.table.name} SET ${setClauses} WHERE ${primaryKey} = ${this.escapeSqlValue(row[primaryKey as keyof ColumnInfer<T['columns']>])};`;
+    });
+    return `BEGIN TRANSACTION; ${updateClauses.join(' ')} COMMIT;`;
+  }
+
   private _fastUpdate(
     conditions: ColumnQuery<T['columns']>,
     newData: Partial<ColumnInfer<T['columns']>>,
@@ -210,7 +279,8 @@ export class Repository<T extends Table> {
     // 构建 SET 子句
     const setClauses = this.buildSetClauses(newData);
     // 构建更新 SQL 语句
-    const sql = `UPDATE ${this.table.name} SET ${setClauses} WHERE ${whereClauses}`;
+    const sql = `UPDATE ${this.table.name} ${setClauses} ${whereClauses}`;
+    this.logger.info('update sql ===>', sql).print();
     // 执行更新操作
     this.server.exec(sql);
     return true;
@@ -233,7 +303,8 @@ export class Repository<T extends Table> {
     // 构建 SET 子句
     const setClauses = this.buildSetClauses(newData);
     // 构建更新 SQL 语句
-    const sql = `UPDATE ${this.table.name} SET ${setClauses} WHERE rowid = ${res[0].rowid}`;
+    const sql = `UPDATE ${this.table.name} ${setClauses} WHERE rowid = ${res[0].rowid}`;
+    this.logger.info('update sql ===>', sql).print();
     // 执行更新操作
     this.server.exec(sql);
 
@@ -246,7 +317,7 @@ export class Repository<T extends Table> {
     options: {
       fast?: boolean;
     } = {
-      fast: false,
+      fast: true,
     },
   ): boolean {
     const { fast } = options;
@@ -271,7 +342,8 @@ export class Repository<T extends Table> {
     // 构建 SET 子句
     const setClauses = this.buildSetClauses(newData);
     // 构建更新 SQL 语句
-    const sql = `UPDATE ${this.table.name} SET ${setClauses} WHERE ${whereClauses}`;
+    const sql = `UPDATE ${this.table.name} ${setClauses} ${whereClauses}`;
+    this.logger.info('updateMany sql ===>', sql).print();
     // 执行更新操作
     this.server.exec(sql);
     return true;
@@ -295,7 +367,8 @@ export class Repository<T extends Table> {
     // 构建 WHERE 子句
     const whereClauses = this.buildWhereWithRowid(res);
     // 构建更新 SQL 语句
-    const sql = `UPDATE ${this.table.name} SET ${setClauses} WHERE ${whereClauses}`;
+    const sql = `UPDATE ${this.table.name} ${setClauses} ${whereClauses}`;
+    this.logger.info('updateMany sql ===>', sql).print();
     // 执行更新操作
     this.server.exec(sql);
 
@@ -314,8 +387,8 @@ export class Repository<T extends Table> {
       isHardDelete?: boolean;
       fast?: boolean;
     } = {
-      isHardDelete: false,
-      fast: false,
+      isHardDelete: true,
+      fast: true,
     },
   ) {
     const { isHardDelete, fast } = options;
@@ -343,19 +416,21 @@ export class Repository<T extends Table> {
     options: {
       isHardDelete?: boolean;
     } = {
-      isHardDelete: false,
+      isHardDelete: true,
     },
   ) {
     // 构建 WHERE 子句
     const whereClauses = this.buildWhereClause(conditions);
     if (options.isHardDelete) {
       // 硬删除
-      const deleteSql = `DELETE FROM ${this.table.name} WHERE ${whereClauses}`;
+      const deleteSql = `DELETE FROM ${this.table.name} ${whereClauses}`;
+      this.logger.info('remove sql: ', deleteSql).print();
       const _delRes = this.server.exec(deleteSql);
       return _delRes;
     } else {
       // 软删除
-      const updateSql = `UPDATE ${this.table.name} SET _deleteAt = current_timestamp WHERE ${whereClauses}`;
+      const updateSql = `UPDATE ${this.table.name} SET _deleteAt = current_timestamp ${whereClauses}`;
+      this.logger.info('remove sql: ', updateSql).print();
       const _delRes = this.server.exec(updateSql);
       return _delRes;
     }
@@ -376,11 +451,13 @@ export class Repository<T extends Table> {
     if (isHardDelete) {
       // 硬删除
       const deleteSql = `DELETE FROM ${this.table.name} WHERE rowid = ${res[0].rowid}`;
+      this.logger.info('remove sql: ', deleteSql).print();
       const _delRes = this.server.exec(deleteSql);
       return _delRes;
     } else {
       // 软删除
       const updateSql = `UPDATE ${this.table.name} SET _deleteAt = current_timestamp WHERE rowid = ${res[0].rowid}`;
+      this.logger.info('remove sql: ', updateSql).print();
       const _delRes = this.server.exec(updateSql);
       return _delRes;
     }
@@ -388,10 +465,21 @@ export class Repository<T extends Table> {
 
   removeMany(
     conditions: ColumnQuery<T['columns']>,
-    isHardDelete: boolean = false,
+    options: {
+      isHardDelete?: boolean;
+      fast?: boolean;
+    } = {
+      isHardDelete: true,
+      fast: true,
+    },
   ) {
+    if (options.fast) {
+      return this._fastRemove(conditions, {
+        isHardDelete: options.isHardDelete,
+      });
+    }
     return this._remove(conditions, {
-      isHardDelete,
+      isHardDelete: options.isHardDelete,
     });
   }
 
@@ -400,7 +488,7 @@ export class Repository<T extends Table> {
     options: {
       isHardDelete?: boolean;
     } = {
-      isHardDelete: false,
+      isHardDelete: true,
     },
   ) {
     // 查询数据库中满足条件的数据
@@ -414,23 +502,55 @@ export class Repository<T extends Table> {
     const whereClauses = this.buildWhereWithRowid(res);
 
     if (options.isHardDelete) {
-      const sql = `DELETE FROM ${this.table.name} WHERE ${whereClauses}`;
-      this.logger.info('sql: ', sql).print();
+      const sql = `DELETE FROM ${this.table.name} ${whereClauses}`;
+      this.logger.info('remove sql: ', sql).print();
       return this.server.exec(sql);
     } else {
-      const sql = `UPDATE ${this.table.name} SET _deleteAt = current_timestamp WHERE ${whereClauses}`;
-      this.logger.info('sql: ', sql).print();
+      const sql = `UPDATE ${this.table.name} SET _deleteAt = current_timestamp ${whereClauses}`;
+      this.logger.info('remove sql: ', sql).print();
       return this.server.exec(sql);
     }
   }
 
-  private getColumn(item: ColumnInfer<T['columns']>): string {
+  private getColumn(item: ColumnInfer<T['columns']>): string[] {
     const colNames = Object.keys(this.columns).filter(
       (key) => !key.startsWith('_') && !['rowid'].includes(key),
     );
-    return Object.keys(item)
-      .filter((k) => colNames.includes(k))
+    return Object.keys(item).filter((k) => colNames.includes(k));
+  }
+
+  private buildLimitClause(options: QueryClauses) {
+    const { limit, offset } = options;
+    let str = '';
+    if (limit) {
+      str += `LIMIT ${limit}`;
+    } else {
+      return str;
+    }
+    if (offset) {
+      str += ` OFFSET ${offset}`;
+    }
+    return str;
+  }
+
+  private buildOrderByClause(conditions: ColumnQuery<T['columns']>) {
+    const orderByOptions = Object.entries(conditions).filter(([_, v]) => {
+      // 如果v是对象，并且有order属性，那么就认为是排序条件
+      if (typeof v === 'object' && v !== null && 'orderBy' in v) {
+        return true;
+      }
+    });
+
+    if (orderByOptions.length === 0) {
+      return '';
+    }
+    const orderByStr = orderByOptions
+      .map(([k, v]) => {
+        return `${k} ${v.orderBy}`;
+      })
+      .filter(Boolean)
       .join(', ');
+    return `ORDER BY ${orderByStr}`;
   }
 
   /**
@@ -440,53 +560,118 @@ export class Repository<T extends Table> {
    */
   private buildWhereClause(conditions: ColumnQuery<T['columns']>) {
     const whereClauses = Object.entries(conditions)
-      .map(([key, options]) => {
+      ?.map(([key, options]) => {
         return this.optionsClauses(key, options);
       })
+      .filter(Boolean)
       .join(' AND ');
     this.logger.info(`whereClauses: ${whereClauses}`);
-    return whereClauses;
+    if (!whereClauses) {
+      return `WHERE _deleteAt IS NULL`;
+    }
+    return `WHERE _deleteAt IS NULL AND ${whereClauses}`;
   }
 
   private buildWhereWithRowid(res: ColumnInfer<T['columns']>[]) {
-    return `rowid IN (${res.map((item) => item.rowid)})`;
+    return `WHERE rowid IN (${res.map((item) => item.rowid)})`;
   }
 
   private handleArrayClause(options: string[] | number[]) {
+    if (options.length === 0) {
+      return '';
+    }
     return `(${options.map((item) => (typeof item === 'string' ? `'${item.replace(/'/g, "''")}'` : item)).join(', ')})`;
   }
 
   private optionsClauses(
     attr: string,
-    options: ColClause | string | number | string[] | number[],
+    options:
+      | ColClause
+      | string
+      | number
+      | string[]
+      | number[]
+      | null
+      | undefined,
   ) {
+    if (options === null || options === undefined) {
+      return `${attr} IS NULL`;
+    }
+
     if (typeof options === 'string' || typeof options === 'number') {
       return `${attr} = ${typeof options === 'string' ? `'${options.replace(/'/g, "''")}'` : options}`;
     }
     if (Array.isArray(options)) {
-      return `${attr} IN ${this.handleArrayClause(options)}`;
-      // return `${attr} IN (${options.map((item) => (typeof item === 'string' ? `'${item.replace(/'/g, "''")}'` : item)).join(', ')})`;
+      let str = '';
+      // 判断options数组中是否包含null或undefined
+      if (options.some((item) => item === null || item === undefined)) {
+        str = `${attr} IS NULL`;
+      }
+
+      // 排除options数组中的null和undefined
+      const newOptions = options.filter(
+        (item) => item !== null && item !== undefined,
+      ) as string[] | number[];
+
+      if (newOptions.length === 0) {
+        return str;
+      }
+
+      return str
+        ? `${str} OR ${attr} IN ${this.handleArrayClause(newOptions)}`
+        : `${attr} IN ${this.handleArrayClause(newOptions)}`;
     }
     const clauses: string[] = [];
+    const orClauses: string[] = [];
 
-    if (options.equal !== undefined) {
+    if (
+      options.hasOwnProperty('equal') &&
+      (options.equal === null || options.equal === undefined)
+    ) {
+      clauses.push(`${attr} IS NULL`);
+    }
+
+    if (
+      options.hasOwnProperty('notEqual') &&
+      (options.notEqual === null || options.notEqual === undefined)
+    ) {
+      clauses.push(`${attr} IS NOT NULL`);
+    }
+
+    if (options.equal !== undefined && options.equal !== null) {
       if (Array.isArray(options.equal)) {
-        clauses.push(
-          `${attr} IN ${this.handleArrayClause(options.equal)}`,
-          // `${attr} IN (${options.equal.map((item) => (typeof item === 'string' ? `'${item.replace(/'/g, "''")}'` : item)).join(', ')})`,
-        );
+        // 判断options.equal数组中是否包含null或undefined
+        if (options.equal.some((item) => item === null || item === undefined)) {
+          orClauses.push(`${attr} IS NULL`);
+        }
+        // 排除options.equal数组中的null和undefined
+        const newOptions = options.equal.filter(
+          (item) => item !== null && item !== undefined,
+        ) as string[] | number[];
+        if (newOptions.length !== 0) {
+          clauses.push(`${attr} IN ${this.handleArrayClause(newOptions)}`);
+        }
       } else {
         clauses.push(
           `${attr} = ${typeof options.equal === 'string' ? `'${options.equal.replace(/'/g, "''")}'` : options.equal}`,
         );
       }
     }
-    if (options.notEqual !== undefined) {
+    if (options.notEqual !== undefined && options.notEqual !== null) {
       if (Array.isArray(options.notEqual)) {
-        clauses.push(
-          `${attr} NOT IN ${this.handleArrayClause(options.notEqual)}`,
-          // `${attr} NOT IN (${options.notEqual.map((item) => (typeof item === 'string' ? `'${item.replace(/'/g, "''")}'` : item)).join(', ')})`,
-        );
+        // 判断options.notEqual数组中是否包含null或undefined
+        if (
+          options.notEqual.some((item) => item === null || item === undefined)
+        ) {
+          orClauses.push(`${attr} IS NOT NULL`);
+        }
+        // 排除options.notEqual数组中的null和undefined
+        const newOptions = options.notEqual.filter(
+          (item) => item !== null && item !== undefined,
+        ) as string[] | number[];
+        if (newOptions.length !== 0) {
+          clauses.push(`${attr} NOT IN ${this.handleArrayClause(newOptions)}`);
+        }
       } else {
         clauses.push(
           `${attr} != ${typeof options.notEqual === 'string' ? `'${options.notEqual.replace(/'/g, "''")}'` : options.notEqual}`,
@@ -508,11 +693,27 @@ export class Repository<T extends Table> {
     if (options.like !== undefined) {
       clauses.push(`${attr} LIKE '%${options.like.replace(/'/g, "''")}%'`);
     }
-    if (options.orderBy) {
-      clauses.push(`ORDER BY ${attr} ${options.orderBy}`);
-    }
 
-    return clauses.join(' AND ');
+    // 拼接当前 attr 的所有 and 条件
+    const currentAttrClauses = clauses.join(' AND ');
+    // 拼接当前 attr 的所有 or 条件
+    const currentAttrOrClauses = orClauses.join(' OR ');
+    // 如果当前 attr 的所有条件和所有 or 条件都为空，则返回空字符串
+    if (!currentAttrClauses && !currentAttrOrClauses) {
+      return '';
+    }
+    // 如果当前 attr 的所有条件和所有 or 条件都不为空，则返回当前 attr 的所有条件和所有 or 条件的拼接结果
+    if (currentAttrClauses && currentAttrOrClauses) {
+      return `(${currentAttrClauses} OR ${currentAttrOrClauses})`;
+    }
+    // 如果当前 attr 的所有条件不为空，则返回当前 attr 的所有条件
+    if (currentAttrClauses) {
+      return `${currentAttrClauses}`;
+    }
+    // 如果当前 attr 的所有 or 条件不为空，则返回当前 attr 的所有 or 条件
+    if (currentAttrOrClauses) {
+      return `${currentAttrOrClauses}`;
+    }
   }
 
   /**
@@ -524,12 +725,24 @@ export class Repository<T extends Table> {
     const setClauses = Object.entries(newData)
       .map(([key, value]) => {
         if (typeof value === 'string') {
-          return `${key} = '${value.replace(/'/g, "''")}'`; // 处理字符串中的单引号
+          return `${key} = '${(value as string).replace(/'/g, "''")}'`; // 处理字符串中的单引号
         }
         return `${key} = ${value}`;
       })
       .join(', ');
 
-    return setClauses;
+    if (setClauses === '') {
+      return '';
+    }
+
+    return `SET ${setClauses}`;
+  }
+
+  private escapeSqlValue(value: any): string {
+    if (typeof value === 'string') {
+      // 处理字符串中的单引号
+      return `'${value.replace(/'/g, "''")}'`;
+    }
+    return value;
   }
 }

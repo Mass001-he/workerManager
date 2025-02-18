@@ -2,6 +2,15 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 
+const workerCode = `
+console.log('Worker started');
+
+`;
+const blob = new Blob([workerCode], { type: 'application/javascript' });
+const worker = new SharedWorker(URL.createObjectURL(blob), {
+  name: 'myWorker',
+});
+
 // const dates = [];
 // setInterval(() => {
 //   const date = Date.now();

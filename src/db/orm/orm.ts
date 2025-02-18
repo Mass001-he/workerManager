@@ -10,6 +10,7 @@ import { Logger } from '../../utils';
 import { Repository } from './repository';
 import { Upgrade } from './upgrade';
 import initSqlite3 from '@sqlite.org/sqlite-wasm';
+import { QueryBuilder } from './queryBuilder/query';
 
 export interface SqliteWasmORMOptions<T extends Table[]> {
   tables: T;
@@ -131,5 +132,10 @@ export class SqliteWasmORM<T extends Table[]> {
 
   callRepo<N extends T[number]['name']>(name: N) {
     return this.getRepository(name);
+  }
+
+  createQueryBuilder<N extends T[number]['name']>(name: N) {
+    const queryBuilder = new QueryBuilder();
+    return queryBuilder;
   }
 }

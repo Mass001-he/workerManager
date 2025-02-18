@@ -94,6 +94,6 @@ const rpc = {
   exec,
 };
 
-export type rpcType = typeof rpc;
+export type RpcType = typeof rpc;
 
 Comlink.expose(rpc);

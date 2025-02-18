@@ -4,6 +4,7 @@ import { registerService } from './service';
 import { SQLView } from './sqlView';
 import './index.css';
 import { WebRemoteEmitter } from './utils/event/remoteEmitter';
+import { safeRandomUUID } from './utils/event/utils';
 
 const sharedWorker = new SharedWorker(new URL('./worker.ts', import.meta.url), {
   name: 'vertexWorker',
@@ -54,6 +55,14 @@ const App = () => {
     }
   };
 
+  const test = () => {
+    node?.request('test', {
+      mid: safeRandomUUID(),
+      name: Date.now().toString(),
+      age: 18,
+    });
+  };
+
   const broadcast = () => {
     node?.broadcast({
       type: '更新会话详情',
@@ -87,13 +96,7 @@ const App = () => {
         >
           clearDBd
         </button>
-        <button
-          onClick={() => {
-            node.request('test', {});
-          }}
-        >
-          test
-        </button>
+        <button onClick={test}>test</button>
         <button onClick={sendMessage}>有返回值发送消息 </button>
         <button onClick={broadcast}>广播</button>
         <button onClick={watchBroadcast}>监听广播</button>

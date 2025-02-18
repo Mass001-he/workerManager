@@ -200,6 +200,7 @@ export class Node {
         const { serviceName, params } = task.data;
 
         const handle = this.service.get(serviceName);
+        console.log('handle', handle, params);
         const res = await handle(params);
         const _payload: DispatchResponsePayload = {
           data: res,

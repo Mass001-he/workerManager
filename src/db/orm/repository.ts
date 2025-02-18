@@ -39,12 +39,13 @@ type ColumnQuery<T extends Record<string, ColumnType>> = {
 
 export class Repository<T extends Table> {
   static insMap = new Map<string, Repository<Table>>();
-  static create<T extends Table>(table: T, server: SqliteWasmORM<[T]>) {
+  static create<T extends Table>(table: T, orm: SqliteWasmORM<[T]>) {
     const key = table.name;
     if (Repository.insMap.has(key)) {
       return Repository.insMap.get(key) as Repository<T>;
     }
-    const ins = new Repository(table, server);
+    const ins = new Repository(table, orm);
+    //@ts-ignore
     Repository.insMap.set(key, ins);
     return ins;
   }
@@ -60,7 +61,7 @@ export class Repository<T extends Table> {
 
   private constructor(
     private table: T,
-    private server: SqliteWasmORM<[T]>,
+    private orm: SqliteWasmORM<[T]>,
   ) {
     this.logger = Logger.scope(`Repo_${table.name}`);
     this.logger.info('created').print();
@@ -102,9 +103,16 @@ export class Repository<T extends Table> {
     });
   }
 
-  insert(item: ColumnInfer<T['columns']>) {
-    return this.insertMany([item]);
-  }
+  insert = (item: ColumnInfer<T['columns']>) => {
+    this.validateColumns([item]);
+    const [sql, bind] = this.orm
+      .getQueryBuilder(this.table.name)
+      .insert(this.table.name)
+      .values(item)
+      .returning()
+      .toSQL();
+    return this.orm.exec(sql, { bind });
+  };
 
   insertMany(items: ColumnInfer<T['columns']>[], uniqueKey?: string) {
     this.validateColumns(items);
@@ -147,7 +155,7 @@ export class Repository<T extends Table> {
     }
     this.logger.info('insertMany sql ===>', sql).print();
     // 执行插入操作
-    return this.server.exec(sql);
+    return this.orm.exec(sql);
   }
 
   private _query(
@@ -165,7 +173,7 @@ export class Repository<T extends Table> {
     const sql = `SELECT rowid, * FROM ${this.table.name} ${whereClauses} ${orderByClauses} ${limitClause}`;
 
     this.logger.info('query sql ===>', sql).print();
-    const result = this.server.exec(sql) || [];
+    const result = this.orm.exec(sql) || [];
     return result as unknown as ColumnInfer<T['columns']>[];
   }
 
@@ -244,7 +252,7 @@ export class Repository<T extends Table> {
     const updateSql = this.buildUpdateSql(res, newData, primaryKey);
 
     this.logger.info('bulkPut sql ===>', updateSql).print();
-    this.server.exec(updateSql);
+    this.orm.exec(updateSql);
     // const changes = this.server.exec('SELECT changes() as changes;');
     return res.map(
       (item) => item[primaryKey as keyof ColumnInfer<T['columns']>],
@@ -282,7 +290,7 @@ export class Repository<T extends Table> {
     const sql = `UPDATE ${this.table.name} ${setClauses} ${whereClauses}`;
     this.logger.info('update sql ===>', sql).print();
     // 执行更新操作
-    this.server.exec(sql);
+    this.orm.exec(sql);
     return true;
   }
 
@@ -306,7 +314,7 @@ export class Repository<T extends Table> {
     const sql = `UPDATE ${this.table.name} ${setClauses} WHERE rowid = ${res[0].rowid}`;
     this.logger.info('update sql ===>', sql).print();
     // 执行更新操作
-    this.server.exec(sql);
+    this.orm.exec(sql);
 
     return true;
   }
@@ -345,7 +353,7 @@ export class Repository<T extends Table> {
     const sql = `UPDATE ${this.table.name} ${setClauses} ${whereClauses}`;
     this.logger.info('updateMany sql ===>', sql).print();
     // 执行更新操作
-    this.server.exec(sql);
+    this.orm.exec(sql);
     return true;
   }
 
@@ -370,7 +378,7 @@ export class Repository<T extends Table> {
     const sql = `UPDATE ${this.table.name} ${setClauses} ${whereClauses}`;
     this.logger.info('updateMany sql ===>', sql).print();
     // 执行更新操作
-    this.server.exec(sql);
+    this.orm.exec(sql);
 
     return true;
   }
@@ -425,13 +433,13 @@ export class Repository<T extends Table> {
       // 硬删除
       const deleteSql = `DELETE FROM ${this.table.name} ${whereClauses}`;
       this.logger.info('remove sql: ', deleteSql).print();
-      const _delRes = this.server.exec(deleteSql);
+      const _delRes = this.orm.exec(deleteSql);
       return _delRes;
     } else {
       // 软删除
       const updateSql = `UPDATE ${this.table.name} SET _deleteAt = current_timestamp ${whereClauses}`;
       this.logger.info('remove sql: ', updateSql).print();
-      const _delRes = this.server.exec(updateSql);
+      const _delRes = this.orm.exec(updateSql);
       return _delRes;
     }
   }
@@ -452,13 +460,13 @@ export class Repository<T extends Table> {
       // 硬删除
       const deleteSql = `DELETE FROM ${this.table.name} WHERE rowid = ${res[0].rowid}`;
       this.logger.info('remove sql: ', deleteSql).print();
-      const _delRes = this.server.exec(deleteSql);
+      const _delRes = this.orm.exec(deleteSql);
       return _delRes;
     } else {
       // 软删除
       const updateSql = `UPDATE ${this.table.name} SET _deleteAt = current_timestamp WHERE rowid = ${res[0].rowid}`;
       this.logger.info('remove sql: ', updateSql).print();
-      const _delRes = this.server.exec(updateSql);
+      const _delRes = this.orm.exec(updateSql);
       return _delRes;
     }
   }
@@ -504,11 +512,11 @@ export class Repository<T extends Table> {
     if (options.isHardDelete) {
       const sql = `DELETE FROM ${this.table.name} ${whereClauses}`;
       this.logger.info('remove sql: ', sql).print();
-      return this.server.exec(sql);
+      return this.orm.exec(sql);
     } else {
       const sql = `UPDATE ${this.table.name} SET _deleteAt = current_timestamp ${whereClauses}`;
       this.logger.info('remove sql: ', sql).print();
-      return this.server.exec(sql);
+      return this.orm.exec(sql);
     }
   }
 

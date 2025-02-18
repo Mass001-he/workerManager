@@ -107,12 +107,7 @@ export class SqliteWasmORM<T extends Table[]> {
     }
   }
 
-  exec<R>(
-    sql: string,
-    options?: ExecBaseOptions &
-      ExecRowModeObjectOptions &
-      ExecReturnThisOptions,
-  ) {
+  exec<R>(sql: string, options?: ExecBaseOptions & ExecReturnThisOptions) {
     try {
       const result = this.dbOriginal.exec(sql, {
         rowMode: 'object',

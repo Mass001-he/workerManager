@@ -47,5 +47,7 @@ export async function registerService(service: Service) {
     return rpc.callRepo('user', 'removeMany', data);
   });
 
-  service.add('test1',(data)=>{})
+  service.add('test', (data) => {
+    return rpc.callRepo('user', 'insert', [data]);
+  });
 }

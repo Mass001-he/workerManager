@@ -39,5 +39,13 @@ export async function registerService(service: Service) {
     return rpc.callRepo('user', 'queryMany', data);
   });
 
+  service.add('updateUser', (data) => {
+    return rpc.callRepo('user', 'updateMany', data);
+  });
+
+  service.add('deleteUser', (data) => {
+    return rpc.callRepo('user', 'removeMany', data);
+  });
+
   service.add('test1',(data)=>{})
 }

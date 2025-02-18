@@ -159,8 +159,7 @@ export class Repository<T extends Table> {
     const result: any[] = [];
     this.orm.dbOriginal.transaction(() => {
       inserts.forEach(([sql, bind]) => {
-        const stmt = this.orm.dbOriginal.prepare(sql);
-        const res = stmt.bind(bind);
+        const res = this.orm.exec(sql, { bind });
 
         if (Array.isArray(res)) {
           result.push(...res);

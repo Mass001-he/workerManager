@@ -46,4 +46,6 @@ export async function registerService(service: Service) {
   service.add('deleteUser', (data) => {
     return rpc.callRepo('user', 'removeMany', data);
   });
+
+  service.add('test1',(data)=>{})
 }

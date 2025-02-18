@@ -52,6 +52,7 @@ const version2 = {
 
 const orm = new SqliteWasmORM(version2);
 const userRepo = orm.getRepository('user');
+
 //test
 setTimeout(() => {
   const users = [];
@@ -63,40 +64,6 @@ setTimeout(() => {
     });
   }
   // userRepo.insertMany(users);
-  // userRepo.updateMany(
-  //   {
-  //     name: {
-  //       like: 'name1',
-  //     },
-  //   },
-  //   {
-  //     age: 99,
-  //   },
-  //   {
-  //     fast: true,
-  //   },
-  // );
-  // userRepo.remove(
-  //   {
-  //     name: {
-  //       equal: 'name5',
-  //     },
-  //   },
-  //   {
-  //     isHardDelete: true,
-  //     fast: true,
-  //   },
-  // );
-  // userRepo.removeMany({
-  //   name: {
-  //     like: 'name1',
-  //   },
-  // });
-  // userRepo.queryMany({
-  //   rowid: {
-  //     gt: 10,
-  //   },
-  // });
 }, 1000);
 
 function connect(name: string) {

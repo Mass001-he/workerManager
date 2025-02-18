@@ -10,6 +10,8 @@ import { Logger } from '../../utils';
 import { Repository } from './repository';
 import { Upgrade } from './upgrade';
 import initSqlite3 from '@sqlite.org/sqlite-wasm';
+import { QueryBuilder } from './queryBuilder/query';
+import { ColumnInfer } from './table';
 
 export interface SqliteWasmORMOptions<T extends Table[]> {
   tables: T;
@@ -131,5 +133,16 @@ export class SqliteWasmORM<T extends Table[]> {
 
   callRepo<N extends T[number]['name']>(name: N) {
     return this.getRepository(name);
+  }
+
+  /**
+   * @param name 这里传递的`name`只是为了便捷的锁定表的类型，并不具备约束queryBuilder中表名的作用
+   */
+  getQueryBuilder<N extends T[number]['name']>(name: N) {
+    const table = this.findTable(name);
+    const queryBuilder = new QueryBuilder<
+      ColumnInfer<(typeof table)['columns']>
+    >();
+    return queryBuilder;
   }
 }

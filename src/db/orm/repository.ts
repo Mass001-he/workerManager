@@ -118,7 +118,7 @@ export class Repository<T extends Table> {
     this.validateColumns(items);
 
     if (items.length === 0) {
-      return;
+      return [];
     }
 
     const columns = this.getColumn(items[0]);
@@ -153,6 +153,7 @@ export class Repository<T extends Table> {
         sql = `${sql} ON CONFLICT(${uKey}) DO UPDATE SET ${updateKeys.map((k) => `${k}=excluded.${k}`).join(', ')};`;
       }
     }
+    sql = `${sql.replace(/;$/, '')} RETURNING *;`;
     this.logger.info('insertMany sql ===>', sql).print();
     // 执行插入操作
     return this.orm.exec(sql);
@@ -287,11 +288,10 @@ export class Repository<T extends Table> {
     // 构建 SET 子句
     const setClauses = this.buildSetClauses(newData);
     // 构建更新 SQL 语句
-    const sql = `UPDATE ${this.table.name} ${setClauses} ${whereClauses}`;
+    const sql = `UPDATE ${this.table.name} ${setClauses} ${whereClauses} RETURNING *;`;
     this.logger.info('update sql ===>', sql).print();
     // 执行更新操作
-    this.orm.exec(sql);
-    return true;
+    return this.orm.exec(sql);
   }
 
   private _update(
@@ -311,12 +311,10 @@ export class Repository<T extends Table> {
     // 构建 SET 子句
     const setClauses = this.buildSetClauses(newData);
     // 构建更新 SQL 语句
-    const sql = `UPDATE ${this.table.name} ${setClauses} WHERE rowid = ${res[0].rowid}`;
+    const sql = `UPDATE ${this.table.name} ${setClauses} WHERE rowid = ${res[0].rowid} RETURNING *;`;
     this.logger.info('update sql ===>', sql).print();
     // 执行更新操作
-    this.orm.exec(sql);
-
-    return true;
+    return this.orm.exec(sql);
   }
 
   updateMany(
@@ -327,7 +325,7 @@ export class Repository<T extends Table> {
     } = {
       fast: true,
     },
-  ): boolean {
+  ) {
     const { fast } = options;
     if (fast) {
       // 快速更新，不查询直接操作数据库
@@ -350,11 +348,10 @@ export class Repository<T extends Table> {
     // 构建 SET 子句
     const setClauses = this.buildSetClauses(newData);
     // 构建更新 SQL 语句
-    const sql = `UPDATE ${this.table.name} ${setClauses} ${whereClauses}`;
+    const sql = `UPDATE ${this.table.name} ${setClauses} ${whereClauses} RETURNING *;`;
     this.logger.info('updateMany sql ===>', sql).print();
     // 执行更新操作
-    this.orm.exec(sql);
-    return true;
+    return this.orm.exec(sql);
   }
 
   private _updateMany(
@@ -375,12 +372,10 @@ export class Repository<T extends Table> {
     // 构建 WHERE 子句
     const whereClauses = this.buildWhereWithRowid(res);
     // 构建更新 SQL 语句
-    const sql = `UPDATE ${this.table.name} ${setClauses} ${whereClauses}`;
+    const sql = `UPDATE ${this.table.name} ${setClauses} ${whereClauses} RETURNING *;`;
     this.logger.info('updateMany sql ===>', sql).print();
     // 执行更新操作
-    this.orm.exec(sql);
-
-    return true;
+    return this.orm.exec(sql);
   }
 
   /**
@@ -431,13 +426,13 @@ export class Repository<T extends Table> {
     const whereClauses = this.buildWhereClause(conditions);
     if (options.isHardDelete) {
       // 硬删除
-      const deleteSql = `DELETE FROM ${this.table.name} ${whereClauses}`;
+      const deleteSql = `DELETE FROM ${this.table.name} ${whereClauses} RETURNING *;`;
       this.logger.info('remove sql: ', deleteSql).print();
       const _delRes = this.orm.exec(deleteSql);
       return _delRes;
     } else {
       // 软删除
-      const updateSql = `UPDATE ${this.table.name} SET _deleteAt = current_timestamp ${whereClauses}`;
+      const updateSql = `UPDATE ${this.table.name} SET _deleteAt = current_timestamp ${whereClauses} RETURNING *;`;
       this.logger.info('remove sql: ', updateSql).print();
       const _delRes = this.orm.exec(updateSql);
       return _delRes;
@@ -458,13 +453,13 @@ export class Repository<T extends Table> {
     }
     if (isHardDelete) {
       // 硬删除
-      const deleteSql = `DELETE FROM ${this.table.name} WHERE rowid = ${res[0].rowid}`;
+      const deleteSql = `DELETE FROM ${this.table.name} WHERE rowid = ${res[0].rowid} RETURNING *;`;
       this.logger.info('remove sql: ', deleteSql).print();
       const _delRes = this.orm.exec(deleteSql);
       return _delRes;
     } else {
       // 软删除
-      const updateSql = `UPDATE ${this.table.name} SET _deleteAt = current_timestamp WHERE rowid = ${res[0].rowid}`;
+      const updateSql = `UPDATE ${this.table.name} SET _deleteAt = current_timestamp WHERE rowid = ${res[0].rowid} RETURNING *;`;
       this.logger.info('remove sql: ', updateSql).print();
       const _delRes = this.orm.exec(updateSql);
       return _delRes;
@@ -510,11 +505,11 @@ export class Repository<T extends Table> {
     const whereClauses = this.buildWhereWithRowid(res);
 
     if (options.isHardDelete) {
-      const sql = `DELETE FROM ${this.table.name} ${whereClauses}`;
+      const sql = `DELETE FROM ${this.table.name} ${whereClauses} RETURNING *;`;
       this.logger.info('remove sql: ', sql).print();
       return this.orm.exec(sql);
     } else {
-      const sql = `UPDATE ${this.table.name} SET _deleteAt = current_timestamp ${whereClauses}`;
+      const sql = `UPDATE ${this.table.name} SET _deleteAt = current_timestamp ${whereClauses} RETURNING *;`;
       this.logger.info('remove sql: ', sql).print();
       return this.orm.exec(sql);
     }

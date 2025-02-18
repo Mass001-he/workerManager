@@ -116,6 +116,7 @@ export class SqliteWasmORM<T extends Table[]> {
       this.logger
         .info('Exec:\n', {
           sql,
+          bind: options?.bind,
           result,
         })
         .print();

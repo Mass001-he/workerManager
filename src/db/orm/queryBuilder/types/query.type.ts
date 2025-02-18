@@ -8,7 +8,7 @@ export interface SQLBuilder {
   groupBy: (clauses?: GroupByClause[]) => SQLWithBindings
   orderBy: (clauses?: OrderByClause[]) => SQLWithBindings
   returning: (clauses?: ReturningClause[]) => SQLWithBindings
-  insert: (clauses: InsertClause[]) => SQLWithBindings
+  insert: (clauses: InsertClause[]) => SQLWithBindings[]
   offset: (value?: number) => SQLWithBindings
   limit: (value?: number) => SQLWithBindings
   update: (clauses: UpdateClause[]) => SQLWithBindings
@@ -281,7 +281,7 @@ export abstract class BaseQuery<T> {
   constructor(options: QueryOptions) {
     this.options = options
   }
-  abstract toSQL(): SQLWithBindings
+  abstract toSQL(): SQLWithBindings | SQLWithBindings[]
 }
 
 export interface ISelectQuery<T>
@@ -360,6 +360,7 @@ export interface IInsertQuery<T> extends IReturningImpl<T> {
    * @param values The values to insert.
    * @example
    * const query = queryBuilder.insert('users').values({ name: 'John', age: 25 });
+   * @description When passing in items with columns that do not align, the result will become multiple SQLWithBindings
    */
   values(values: Partial<T> | Partial<T>[]): IInsertQuery<T>
   /**

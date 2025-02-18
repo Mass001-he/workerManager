@@ -126,3 +126,13 @@ export function escapeSqlValue(value: any[]): string[] {
     return v;
   });
 }
+
+/**
+ * 去除时间中的时区信息
+ * @param date 需要处理的日期字符串
+ * @returns 去除时区后的日期字符串
+ */
+export function removeTimezone(date?: Date): string {
+  const d = date || new Date();
+  return d.toISOString().slice(0, 19).replace('T', ' ');
+}

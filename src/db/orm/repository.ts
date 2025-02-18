@@ -1,5 +1,7 @@
 import { Logger } from '../../utils';
+import { formatDate } from '../../utils/logger/utils';
 import type { SqliteWasmORM } from '../orm';
+import { removeTimezone } from '../utils';
 import type { ColumnType } from './column';
 import {
   type Table,
@@ -82,7 +84,7 @@ export class Repository<T extends Table> {
       | Partial<ColumnInfer<T['columns']>>[],
   ) {
     const _columns = Array.isArray(columns) ? [...columns] : [columns];
-
+    const columnKeyMap: any = {};
     _columns.forEach((column) => {
       Object.entries(column).forEach(([key, value]) => {
         if (!this.columns[key]) {
@@ -99,64 +101,75 @@ export class Repository<T extends Table> {
             `Validation failed for column ${key}: ${res.join(', ')}, current value is ${value}`,
           );
         }
+        if (columnKeyMap[key] === undefined) {
+          columnKeyMap[key] = true;
+        }
       });
     });
+
+    return Object.keys(columnKeyMap);
   }
 
   insert = (item: ColumnInfer<T['columns']>) => {
     this.validateColumns([item]);
-    const [sql, bind] = this.orm
+    const excluded = Object.keys(item).reduce((prev, curr) => {
+      prev[curr] = `excluded.${curr}`;
+      return prev;
+    }, {} as any);
+
+    const now = removeTimezone();
+    const merge: any = { _updateAt: now };
+
+    const [[sql, bind]] = this.orm
       .getQueryBuilder(this.table.name)
       .insert(this.table.name)
       .values(item)
       .returning()
+      .onConflict()
+      .doUpdate({
+        excluded,
+        merge,
+      })
       .toSQL();
+
     return this.orm.exec(sql, { bind });
   };
 
   insertMany(items: ColumnInfer<T['columns']>[], uniqueKey?: string) {
-    this.validateColumns(items);
+    const columnKeys = this.validateColumns(items);
+    const excluded = columnKeys.reduce((prev, curr) => {
+      prev[curr] = `excluded.${curr}`;
+      return prev;
+    }, {} as any);
 
-    if (items.length === 0) {
-      return [];
-    }
+    const now = removeTimezone();
+    const merge: any = { _updateAt: now };
 
-    const columns = this.getColumn(items[0]);
-
-    // 构建插入 SQL 语句
-    const valuesList = items
-      .map((item) => {
-        const values = columns.map((k) => {
-          const value = item[k as keyof typeof item];
-          if (typeof value === 'string') {
-            return `'${(value as string).replace(/'/g, "''")}'`; // 处理字符串中的单引号
-          }
-          if (value === null || value === undefined) {
-            return 'NULL';
-          }
-          return value;
-        });
-        return `(${values.join(', ')})`;
+    const inserts = this.orm
+      .getQueryBuilder(this.table.name)
+      .insert(this.table.name)
+      .values(items)
+      .returning()
+      .onConflict(uniqueKey as any)
+      .doUpdate({
+        excluded,
+        merge,
       })
-      .join(', ');
+      .toSQL();
+    const result: any[] = [];
+    this.orm.dbOriginal.transaction(() => {
+      inserts.forEach(([sql, bind]) => {
+        const stmt = this.orm.dbOriginal.prepare(sql);
+        const res = stmt.bind(bind);
 
-    const primaryKey = Object.keys(this.table.columns).find(
-      (k) => this.table.columns[k]._primary,
-    );
-    let sql = `INSERT INTO ${this.table.name} (${columns.join(', ')}) VALUES ${valuesList}`;
-    const uKey = primaryKey || uniqueKey;
-    if (uKey) {
-      let allKeys = new Set(columns);
-      allKeys.delete(uKey);
-      if (allKeys.size !== 0) {
-        const updateKeys = [...allKeys];
-        sql = `${sql} ON CONFLICT(${uKey}) DO UPDATE SET ${updateKeys.map((k) => `${k}=excluded.${k}`).join(', ')};`;
-      }
-    }
-    sql = `${sql.replace(/;$/, '')} RETURNING *;`;
-    this.logger.info('insertMany sql ===>', sql).print();
-    // 执行插入操作
-    return this.orm.exec(sql);
+        if (Array.isArray(res)) {
+          result.push(...res);
+        } else {
+          throw new Error(`no returning`);
+        }
+      });
+    });
+    return result;
   }
 
   private _query(
@@ -186,6 +199,8 @@ export class Repository<T extends Table> {
       limit: 1,
       offset: queryClauses?.offset,
     });
+    // const sqlWithBindings = this.orm.getQueryBuilder(this.table.name).select('rowid').select().from(this.table.name)
+
     return result[0];
   }
 

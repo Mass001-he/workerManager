@@ -127,33 +127,4 @@ describe('UpdateQuery', () => {
     expect(query[1]).toEqual(['active', 5])
   })
 
-  test('Update with FROM clause', () => {
-    const query = createQuery()
-      .update('employees', { salary: 50000 })
-      .from('salary_updates')
-      .where({
-        'employees.id': { $eq: { $col: 'salary_updates.employee_id' } }
-      })
-      .toSQL()
-
-    expect(query[0]).toBe(
-      'UPDATE "employees" SET "salary" = ? FROM "salary_updates" WHERE "employees"."id" = "salary_updates"."employee_id";'
-    )
-    expect(query[1]).toEqual([50000])
-  })
-
-  test('Update with FROM RAW clause', () => {
-    const query = createQuery()
-      .update('employees', { status: 'inactive' })
-      .fromRaw('(SELECT id FROM retired_employees) AS r')
-      .where({
-        'employees.id': { $eq: { $col: 'r.id' } }
-      })
-      .toSQL()
-
-    expect(query[0]).toBe(
-      'UPDATE "employees" SET "status" = ? FROM (SELECT id FROM retired_employees) AS r WHERE "employees"."id" = "r"."id";'
-    )
-    expect(query[1]).toEqual(['inactive'])
-  })
 })

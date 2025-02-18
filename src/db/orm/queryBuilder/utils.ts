@@ -106,3 +106,7 @@ export function validateBindings(sqlWithBindings: SQLWithBindings): void {
 export function isPositiveInteger(value: unknown): value is number {
   return typeof value === 'number' && value > 0 && Number.isInteger(value)
 }
+
+export function arraysEqual(a: string[], b: string[]): boolean {
+  return a.length === b.length && a.every((val, index) => val === b[index])
+}

@@ -56,11 +56,25 @@ const App = () => {
   };
 
   const test = () => {
-    node?.request('test', {
-      mid: safeRandomUUID(),
-      name: Date.now().toString(),
-      age: 18,
-    });
+    node?.request('test', [
+      {
+        mid: 'mid1',
+        name: '张三',
+        age: 20,
+      },
+      {
+        mid: 'mid2',
+        name: '李四',
+        age: 21,
+        profile: 'profile1',
+      },
+      {
+        mid: 'mid3',
+        name: '王五',
+        age: 22,
+        avatar: '123',
+      },
+    ]);
   };
 
   const broadcast = () => {

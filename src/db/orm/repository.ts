@@ -3,6 +3,7 @@ import { formatDate } from '../../utils/logger/utils';
 import type { SqliteWasmORM } from '../orm';
 import { removeTimezone } from '../utils';
 import type { ColumnType } from './column';
+import type { SQLWithBindings } from './queryBuilder/lib';
 import {
   type Table,
   type ColumnInfer,
@@ -110,6 +111,21 @@ export class Repository<T extends Table> {
     return Object.keys(columnKeyMap);
   }
 
+  private execSQLWithBindingList(SQLWithBindingsList: SQLWithBindings[]) {
+    const result: any[] = [];
+    this.orm.dbOriginal.transaction(() => {
+      SQLWithBindingsList.forEach(([sql, bind]) => {
+        const res = this.orm.exec(sql, { bind });
+        if (Array.isArray(res)) {
+          result.push(...res);
+        } else {
+          throw new Error(`no returning`);
+        }
+      });
+    });
+    return result;
+  }
+
   /**
    * @description 插入单条数据,内部调用`insertMany`,面对冲突会忽略
    * @description_en Insert a single item into the table, ignoring conflicts.
@@ -135,17 +151,7 @@ export class Repository<T extends Table> {
       .onConflict()
       .doNothing()
       .toSQL();
-    const result: any[] = [];
-    this.orm.dbOriginal.transaction(() => {
-      inserts.forEach(([sql, bind]) => {
-        const res = this.orm.exec(sql, { bind });
-        if (Array.isArray(res)) {
-          result.push(...res);
-        } else {
-          throw new Error(`no returning`);
-        }
-      });
-    });
+    const result = this.execSQLWithBindingList(inserts);
     return result;
   }
 
@@ -189,18 +195,8 @@ export class Repository<T extends Table> {
         merge,
       })
       .toSQL();
-    const result: any[] = [];
-    this.orm.dbOriginal.transaction(() => {
-      inserts.forEach(([sql, bind]) => {
-        const res = this.orm.exec(sql, { bind });
 
-        if (Array.isArray(res)) {
-          result.push(...res);
-        } else {
-          throw new Error(`no returning`);
-        }
-      });
-    });
+    const result = this.execSQLWithBindingList(inserts);
     return result;
   }
 

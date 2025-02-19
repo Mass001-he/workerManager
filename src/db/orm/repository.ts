@@ -3,12 +3,26 @@ import type { SqliteWasmORM } from '../orm';
 import { removeTimezone } from '../utils';
 import type { ColumnType } from './column';
 import type { OrderByType, SQLWithBindings } from './queryBuilder/lib';
+import { QueryBuilder } from './queryBuilder/lib';
 import {
   type Table,
   type ColumnInfer,
   type KernelColumnsKeys,
   kernelColumnsKeys,
 } from './table';
+
+export interface RemoveOptions {
+  /**
+   * @description 是否硬删除,默认软删除
+   * @description_en Whether to hard delete, default is soft delete
+   */
+  isHardDelete?: boolean;
+  /**
+   * @description 限制删除的数量
+   * @description_en Limit the number of deletions
+   */
+  limit?: number;
+}
 
 export interface ColClause<T = any> {
   /** === */
@@ -85,12 +99,19 @@ export class Repository<T extends Table> {
     return this.table.columns as Record<string, ColumnType>;
   }
 
+  public primaryKey = 'rowid';
+
   private constructor(
     private table: T,
     private orm: SqliteWasmORM<[T]>,
   ) {
     this.logger = Logger.scope(`Repo_${table.name}`);
     this.logger.info('created').print();
+    Object.entries(this.columns).forEach(([key, value]) => {
+      if (value._primary) {
+        this.primaryKey = key;
+      }
+    });
   }
 
   private validateKernelCols(data: Partial<ColumnInfer<T['columns']>>) {
@@ -429,132 +450,67 @@ export class Repository<T extends Table> {
    */
   remove(
     conditions: ColumnQuery<T['columns']>,
-    options: {
-      isHardDelete?: boolean;
-      fast?: boolean;
-    } = {
-      isHardDelete: true,
-      fast: true,
+    options: RemoveOptions = {
+      isHardDelete: false,
+      limit: undefined,
     },
   ) {
-    const { isHardDelete, fast } = options;
-    if (fast) {
-      // 快速删除， 不查询直接操作数据库
-      return this._fastRemove(conditions, {
-        isHardDelete,
-      });
-    } else {
-      // 先查询数据库，再删除
-      return this._remove(conditions, {
-        isHardDelete,
-      });
-    }
-  }
+    const { isHardDelete, limit } = options;
+    const { orderBy, condition } = this.transformData(conditions);
+    const now = removeTimezone();
+    const queryBuilder = new QueryBuilder<{
+      _deleteAt: string;
+      _updateAt: string;
+    }>();
 
-  /**
-   * 快速删除，不返回结果,直接删除数据库中的数据
-   * @param conditions
-   * @param options
-   * @returns
-   */
-  private _fastRemove(
-    conditions: ColumnQuery<T['columns']>,
-    options: {
-      isHardDelete?: boolean;
-    } = {
-      isHardDelete: true,
-    },
-  ) {
-    // 构建 WHERE 子句
-    const whereClauses = this.buildWhereClause(conditions);
-    if (options.isHardDelete) {
-      // 硬删除
-      const deleteSql = `DELETE FROM ${this.table.name} ${whereClauses} RETURNING *;`;
-      this.logger.info('remove sql: ', deleteSql).print();
-      const _delRes = this.orm.exec(deleteSql);
-      return _delRes;
-    } else {
-      // 软删除
-      const updateSql = `UPDATE ${this.table.name} SET _deleteAt = current_timestamp ${whereClauses} RETURNING *;`;
-      this.logger.info('remove sql: ', updateSql).print();
-      const _delRes = this.orm.exec(updateSql);
-      return _delRes;
+    const _selectQuery = queryBuilder
+      .select('*')
+      .from(this.table.name)
+      .where(condition);
+    if (this.primaryKey === 'rowid') {
+      _selectQuery.select('rowid');
     }
-  }
-
-  removeOne(
-    conditions: ColumnQuery<T['columns']>,
-    isHardDelete: boolean = false,
-  ) {
-    const res = this._query(conditions, {
-      limit: 1,
-    });
-
-    if (res.length === 0) {
-      this.logger.info('No record found').print();
-      return false;
-    }
-    if (isHardDelete) {
-      // 硬删除
-      const deleteSql = `DELETE FROM ${this.table.name} WHERE rowid = ${res[0].rowid} RETURNING *;`;
-      this.logger.info('remove sql: ', deleteSql).print();
-      const _delRes = this.orm.exec(deleteSql);
-      return _delRes;
-    } else {
-      // 软删除
-      const updateSql = `UPDATE ${this.table.name} SET _deleteAt = current_timestamp WHERE rowid = ${res[0].rowid} RETURNING *;`;
-      this.logger.info('remove sql: ', updateSql).print();
-      const _delRes = this.orm.exec(updateSql);
-      return _delRes;
-    }
-  }
-
-  removeMany(
-    conditions: ColumnQuery<T['columns']>,
-    options: {
-      isHardDelete?: boolean;
-      fast?: boolean;
-    } = {
-      isHardDelete: true,
-      fast: true,
-    },
-  ) {
-    if (options.fast) {
-      return this._fastRemove(conditions, {
-        isHardDelete: options.isHardDelete,
+    if (orderBy) {
+      Object.entries(orderBy).forEach(([key, value]) => {
+        _selectQuery.orderBy(key as any, value);
       });
     }
-    return this._remove(conditions, {
-      isHardDelete: options.isHardDelete,
-    });
-  }
-
-  private _remove(
-    conditions: ColumnQuery<T['columns']>,
-    options: {
-      isHardDelete?: boolean;
-    } = {
-      isHardDelete: true,
-    },
-  ) {
-    // 查询数据库中满足条件的数据
-    const res = this._query(conditions);
-    if (res.length === 0) {
-      this.logger.info('No record found').print();
-      return false;
+    if (limit) {
+      _selectQuery.limit(limit);
     }
-
-    // 构建 WHERE 子句
-    const whereClauses = this.buildWhereWithRowid(res);
-
-    if (options.isHardDelete) {
-      const sql = `DELETE FROM ${this.table.name} ${whereClauses} RETURNING *;`;
-      this.logger.info('remove sql: ', sql).print();
-      return this.orm.exec(sql);
+    const sql = _selectQuery.toSQL();
+    const result = this.execSQLWithBindingList([sql]);
+    if (result.length === 0) {
+      return result;
+    }
+    const primaryValues = result.map((item) => item[this.primaryKey]);
+    if (isHardDelete === false) {
+      const updateQuery = queryBuilder
+        .update(this.table.name, {
+          _deleteAt: now as any,
+          _updateAt: now as any,
+        })
+        .where({
+          ...(primaryValues.length === 1
+            ? { [this.primaryKey]: primaryValues[0] }
+            : { [this.primaryKey]: { $in: primaryValues } }),
+        })
+        .returning();
+      const updateSql = updateQuery.toSQL();
+      const updateResult = this.execSQLWithBindingList([updateSql]);
+      return updateResult;
     } else {
-      const sql = `UPDATE ${this.table.name} SET _deleteAt = current_timestamp ${whereClauses} RETURNING *;`;
-      this.logger.info('remove sql: ', sql).print();
-      return this.orm.exec(sql);
+      const deleteQuery = queryBuilder
+        .delete(this.table.name)
+        .where({
+          ...(primaryValues.length === 1
+            ? { [this.primaryKey]: primaryValues[0] }
+            : { [this.primaryKey]: { $in: primaryValues } }),
+        })
+        .returning();
+      const deleteSql = deleteQuery.toSQL();
+      const deleteResult = this.execSQLWithBindingList([deleteSql]);
+      return deleteResult;
     }
   }
 

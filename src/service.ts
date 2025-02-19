@@ -26,7 +26,7 @@ export async function registerService(service: Service) {
   service.onDestroy(close);
 
   service.add('deleteMsg', ({ data }) => {
-    return rpc.callRepo('user', 'removeMany', [
+    return rpc.callRepo('user', 'remove', [
       {
         name: data.deleteName,
       },
@@ -44,7 +44,7 @@ export async function registerService(service: Service) {
   });
 
   service.add('deleteUser', (data) => {
-    return rpc.callRepo('user', 'removeMany', data);
+    return rpc.callRepo('user', 'remove', data);
   });
 
   service.add('test', (data) => {

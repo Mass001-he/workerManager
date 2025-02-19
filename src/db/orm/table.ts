@@ -29,7 +29,7 @@ export type ColumnInfer<T extends Record<string, ColumnType>> = Prettier<
   >
 >;
 
-type KernelColumns = {
+export type KernelColumns = {
   _createAt: ColumnOptional<ColumnDate>;
   _updateAt: ColumnOptional<ColumnDate>;
   _deleteAt: ColumnOptional<ColumnDate>;

@@ -74,7 +74,25 @@ const App = () => {
         age: 22,
         avatar: '123',
       },
+      {
+        mid: 'mid4',
+        name: '赵六',
+        age: 23,
+        avatar: '123',
+      },
+      {
+        mid: 'mid5',
+        name: '孙七',
+        age: 24,
+        avatar: '123',
+      },
     ]);
+  };
+
+  const delTest = () => {
+    node?.request('deleteUser', {
+      mid: 'mid1',
+    });
   };
 
   const broadcast = () => {

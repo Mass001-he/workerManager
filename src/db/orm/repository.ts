@@ -25,8 +25,34 @@ export interface ColClause<T = any> {
   gte?: number;
   /** like */
   like?: string;
-  orderBy?: 'ASC' | 'DESC';
+  in?: any[];
+  /** not in */
+  notIn?: any[];
+  /** null or not null */
+  isNull?: boolean;
+  /** between */
+  between?: [any, any];
+  /** not between */
+  $notBetween?: [any, any];
+  orderBy?: TOrderBy;
 }
+
+type TOrderBy = 'ASC' | 'DESC';
+
+const operatorsMap = {
+  equal: '$eq',
+  notEqual: '$ne',
+  lt: '$lt',
+  gt: '$gt',
+  lte: '$lte',
+  gte: '$gte',
+  like: '$like',
+  in: '$in',
+  notIn: '$nin',
+  between: '$between',
+  notBetween: '$notBetween',
+  isNull: '$null',
+};
 
 export interface QueryClauses {
   limit?: number;
@@ -747,5 +773,29 @@ export class Repository<T extends Table> {
       return `'${value.replace(/'/g, "''")}'`;
     }
     return value;
+  }
+
+  private transformData(conditions: ColumnQuery<T['columns']>) {
+    const condition: Record<string, any> = {};
+    const orderBy: Record<string, TOrderBy> = {};
+
+    Object.entries(conditions).forEach(([key, value]) => {
+      if (typeof value === 'object' && value !== null) {
+        Object.entries(operatorsMap).forEach(([operator, sqlOperator]) => {
+          if (value.hasOwnProperty(operator)) {
+            condition[key] = condition[key] || {};
+            condition[key][sqlOperator] = value[operator];
+          }
+        });
+
+        if (value.hasOwnProperty('orderBy')) {
+          orderBy[key] = value.orderBy;
+        }
+      } else {
+        condition[key] = value;
+      }
+    });
+
+    return { condition, orderBy };
   }
 }

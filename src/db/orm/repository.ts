@@ -549,13 +549,6 @@ export class Repository<T extends Table> {
     }
   }
 
-  private getColumn(item: ColumnInfer<T['columns']>): string[] {
-    const colNames = Object.keys(this.columns).filter(
-      (key) => !key.startsWith('_') && !['rowid'].includes(key),
-    );
-    return Object.keys(item).filter((k) => colNames.includes(k));
-  }
-
   private buildLimitClause(options: QueryClauses) {
     const { limit, offset } = options;
     let str = '';

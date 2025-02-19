@@ -110,32 +110,65 @@ export class Repository<T extends Table> {
     return Object.keys(columnKeyMap);
   }
 
-  insert = (item: ColumnInfer<T['columns']>) => {
-    this.validateColumns([item]);
-    const excluded = Object.keys(item).reduce((prev, curr) => {
-      prev[curr] = `excluded.${curr}`;
-      return prev;
-    }, {} as any);
+  /**
+   * @description 插入单条数据,内部调用`insertMany`,面对冲突会忽略
+   * @description_en Insert a single item into the table, ignoring conflicts.
+   * @param item
+   */
+  insert(item: ColumnInfer<T['columns']>) {
+    this.insertMany([item]);
+  }
 
-    const now = removeTimezone();
-    const merge: any = { _updateAt: now };
-
-    const [[sql, bind]] = this.orm
+  /**
+   * @description 插入多条数据,面对冲突会忽略
+   * @description_en Insert multiple items into the table, ignoring conflicts.
+   * @param items
+   * @returns
+   */
+  insertMany(items: ColumnInfer<T['columns']>[]) {
+    this.validateColumns(items);
+    const inserts = this.orm
       .getQueryBuilder(this.table.name)
       .insert(this.table.name)
-      .values(item)
+      .values(items)
       .returning()
       .onConflict()
-      .doUpdate({
-        excluded,
-        merge,
-      })
+      .doNothing()
       .toSQL();
+    const result: any[] = [];
+    this.orm.dbOriginal.transaction(() => {
+      inserts.forEach(([sql, bind]) => {
+        const res = this.orm.exec(sql, { bind });
+        if (Array.isArray(res)) {
+          result.push(...res);
+        } else {
+          throw new Error(`no returning`);
+        }
+      });
+    });
+    return result;
+  }
 
-    return this.orm.exec(sql, { bind });
+  /**
+   * @description 插入单条数据,内部调用`upsertMany`,面对冲突会更新
+   * @description Insert a single item into the table, updating conflicts.
+   * @param item
+   * @param conflictKey 可指定冲突的字段,省略冲突会导致sqlite检查所有唯一性约束，因此在某些情况下可能会有性能开销
+   * @param conflictKey Specify the conflict field, omitting conflicts will cause sqlite to check all uniqueness constraints, which may have performance overhead.
+   */
+  upsert = (item: ColumnInfer<T['columns']>, conflictKey?: string) => {
+    this.upsertMany([item], conflictKey);
   };
 
-  insertMany(items: ColumnInfer<T['columns']>[], uniqueKey?: string) {
+  /**
+   * @description 插入多条数据,面对冲突会更新
+   * @description_en Insert multiple items into the table, updating conflicts.
+   * @param items
+   * @param conflictKey 可指定冲突的字段,省略冲突会导致sqlite检查所有唯一性约束，因此在某些情况下可能会有性能开销
+   * @param conflictKey Specify the conflict field, omitting conflicts will cause sqlite to check all uniqueness constraints, which may have performance overhead.
+   * @returns
+   */
+  upsertMany(items: ColumnInfer<T['columns']>[], conflictKey?: string) {
     const columnKeys = this.validateColumns(items);
     const excluded = columnKeys.reduce((prev, curr) => {
       prev[curr] = `excluded.${curr}`;
@@ -150,7 +183,7 @@ export class Repository<T extends Table> {
       .insert(this.table.name)
       .values(items)
       .returning()
-      .onConflict(uniqueKey as any)
+      .onConflict(conflictKey as any)
       .doUpdate({
         excluded,
         merge,
@@ -238,40 +271,6 @@ export class Repository<T extends Table> {
       // 先查询数据库，再更新
       return this._update(conditions, newData);
     }
-  }
-
-  bulkPut(newData: ColumnInfer<T['columns']>[], uniqueKey?: string) {
-    const primaryKey =
-      Object.keys(this.columns).find((k) => this.columns[k]._primary) ||
-      uniqueKey;
-
-    if (!primaryKey) {
-      throw new Error('No primary key found');
-    }
-
-    const ids = newData.map(
-      (item) => item[primaryKey as keyof ColumnInfer<T['columns']>],
-    );
-
-    const searchData = {
-      [primaryKey]: ids,
-    } as ColumnQuery<T['columns']>;
-
-    // 根据 primaryKey 查询满足 newDate 中的数据
-    const res = this._query(searchData);
-    if (res.length === 0) {
-      this.logger.info('No record found').print();
-      return false;
-    }
-    // 根据 newData 和 res 构建更新sql语句
-    const updateSql = this.buildUpdateSql(res, newData, primaryKey);
-
-    this.logger.info('bulkPut sql ===>', updateSql).print();
-    this.orm.exec(updateSql);
-    // const changes = this.server.exec('SELECT changes() as changes;');
-    return res.map(
-      (item) => item[primaryKey as keyof ColumnInfer<T['columns']>],
-    );
   }
 
   private buildUpdateSql(

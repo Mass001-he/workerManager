@@ -1,5 +1,4 @@
 import { Logger } from '../../utils';
-import { formatDate } from '../../utils/logger/utils';
 import type { SqliteWasmORM } from '../orm';
 import { removeTimezone } from '../utils';
 import type { ColumnType } from './column';
@@ -522,13 +521,6 @@ export class Repository<T extends Table> {
       this.logger.info('remove sql: ', sql).print();
       return this.orm.exec(sql);
     }
-  }
-
-  private getColumn(item: ColumnInfer<T['columns']>): string[] {
-    const colNames = Object.keys(this.columns).filter(
-      (key) => !key.startsWith('_') && !['rowid'].includes(key),
-    );
-    return Object.keys(item).filter((k) => colNames.includes(k));
   }
 
   private buildLimitClause(options: QueryClauses) {

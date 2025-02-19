@@ -252,10 +252,13 @@ export class Repository<T extends Table> {
 
     const query = this.orm
       .getQueryBuilder(this.table.name)
-      .select('rowid')
       .select()
       .from(this.table.name)
       .where(condition);
+  
+    if (this.primaryKey === 'rowid') {
+      query.select('rowid');
+    }
 
     if (Object.keys(orderBy).length > 0) {
       Object.entries(orderBy).forEach(([key, value]) => {

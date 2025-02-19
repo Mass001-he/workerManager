@@ -247,15 +247,15 @@ export class Repository<T extends Table> {
   private _query(
     conditions: ColumnQuery<T['columns']>,
     queryClauses: QueryClauses = {},
-  ): ColumnInfer<T['columns']>[] {
-    const { orderBy, condition } = this.transformData(conditions);
+  ) {
+    const { orderBy, condition } = transformData(conditions);
 
     const query = this.orm
       .getQueryBuilder(this.table.name)
       .select()
       .from(this.table.name)
       .where(condition);
-  
+
     if (this.primaryKey === 'rowid') {
       query.select('rowid');
     }
@@ -285,7 +285,6 @@ export class Repository<T extends Table> {
       limit: 1,
       offset: queryClauses?.offset,
     });
-    // const sqlWithBindings = this.orm.getQueryBuilder(this.table.name).select('rowid').select().from(this.table.name)
 
     return result[0];
   }
@@ -309,56 +308,8 @@ export class Repository<T extends Table> {
   update(
     conditions: ColumnQuery<T['columns']>,
     newData: Partial<ColumnInfer<T['columns']>>,
-    options: {
-      fast?: boolean;
-    } = {
-      fast: true,
-    },
   ) {
-    const { fast } = options;
-    this.validateKernelCols(newData);
-
-    if (fast) {
-      // 快速更新，不查询直接操作数据库
-      return this._fastUpdate(conditions, newData);
-    } else {
-      // 先查询数据库，再更新
-      return this._update(conditions, newData);
-    }
-  }
-
-  private buildUpdateSql(
-    res: ColumnInfer<T['columns']>[],
-    newData: ColumnInfer<T['columns']>[],
-    primaryKey: string,
-  ): string {
-    const updateClauses = res.map((row, index) => {
-      const setClauses = Object.entries(newData[index])
-        .map(([key, value]) =>
-          key !== primaryKey ? `${key} = ${this.escapeSqlValue(value)}` : '',
-        )
-        .filter(Boolean)
-        .join(', ');
-      return `UPDATE ${this.table.name} SET ${setClauses} WHERE ${primaryKey} = ${this.escapeSqlValue(row[primaryKey as keyof ColumnInfer<T['columns']>])};`;
-    });
-    return `BEGIN TRANSACTION; ${updateClauses.join(' ')} COMMIT;`;
-  }
-
-  private _fastUpdate(
-    conditions: ColumnQuery<T['columns']>,
-    newData: Partial<ColumnInfer<T['columns']>>,
-  ) {
-    // 构建 WHERE 子句
-    const whereClauses = this.buildWhereClause(conditions);
-    // 验证新数据
-    this.validateColumns(newData);
-    // 构建 SET 子句
-    const setClauses = this.buildSetClauses(newData);
-    // 构建更新 SQL 语句
-    const sql = `UPDATE ${this.table.name} ${setClauses} ${whereClauses} RETURNING *;`;
-    this.logger.info('update sql ===>', sql).print();
-    // 执行更新操作
-    return this.orm.exec(sql);
+    return this._update(conditions, newData);
   }
 
   private _update(
@@ -370,18 +321,30 @@ export class Repository<T extends Table> {
     });
     if (res.length === 0) {
       this.logger.info('No record found').print();
-      return false;
+      return [];
     }
 
+    this.validateKernelCols(newData);
     this.validateColumns(newData);
 
-    // 构建 SET 子句
-    const setClauses = this.buildSetClauses(newData);
-    // 构建更新 SQL 语句
-    const sql = `UPDATE ${this.table.name} ${setClauses} WHERE rowid = ${res[0].rowid} RETURNING *;`;
-    this.logger.info('update sql ===>', sql).print();
-    // 执行更新操作
-    return this.orm.exec(sql);
+    const primaryValues = res.map((item) => item[this.primaryKey]);
+    const now = removeTimezone();
+    const updateQuery = this.orm
+      .getQueryBuilder(this.table.name)
+      .update(this.table.name, {
+        ...newData,
+        _updateAt: now as any,
+      })
+      .where({
+        ...(primaryValues.length === 1
+          ? { [this.primaryKey]: primaryValues[0] }
+          : { [this.primaryKey]: { $in: primaryValues } }),
+      } as any)
+      .returning()
+      .toSQL();
+
+    const updateResult = this.execSQLWithBindingList([updateQuery]);
+    return updateResult;
   }
 
   updateMany(
@@ -410,15 +373,23 @@ export class Repository<T extends Table> {
     this.validateKernelCols(newData);
     // 验证新数据
     this.validateColumns(newData);
-    // 构建 WHERE 子句
-    const whereClauses = this.buildWhereClause(conditions);
-    // 构建 SET 子句
-    const setClauses = this.buildSetClauses(newData);
-    // 构建更新 SQL 语句
-    const sql = `UPDATE ${this.table.name} ${setClauses} ${whereClauses} RETURNING *;`;
-    this.logger.info('updateMany sql ===>', sql).print();
-    // 执行更新操作
-    return this.orm.exec(sql);
+
+    const { condition, orderBy } = transformData(conditions);
+    if (Object.keys(orderBy).length > 0) {
+      throw new Error('orderBy is not supported in fastUpdate');
+    }
+    const now = removeTimezone();
+    const updateQuery = this.orm
+      .getQueryBuilder(this.table.name)
+      .update(this.table.name, {
+        ...newData,
+        _updateAt: now as any,
+      })
+      .where(condition)
+      .returning()
+      .toSQL();
+    const updateResult = this.execSQLWithBindingList([updateQuery]);
+    return updateResult;
   }
 
   private _updateMany(
@@ -432,17 +403,25 @@ export class Repository<T extends Table> {
     const res = this._query(conditions);
     if (res.length === 0) {
       this.logger.info('No record found').print();
-      return false;
+      return [];
     }
-    // 构建 SET 子句
-    const setClauses = this.buildSetClauses(newData);
-    // 构建 WHERE 子句
-    const whereClauses = this.buildWhereWithRowid(res);
-    // 构建更新 SQL 语句
-    const sql = `UPDATE ${this.table.name} ${setClauses} ${whereClauses} RETURNING *;`;
-    this.logger.info('updateMany sql ===>', sql).print();
-    // 执行更新操作
-    return this.orm.exec(sql);
+    const primaryValues = res.map((item) => item[this.primaryKey]);
+    const now = removeTimezone();
+    const updateQuery = this.orm
+      .getQueryBuilder(this.table.name)
+      .update(this.table.name, {
+        ...newData,
+        _updateAt: now as any,
+      })
+      .where({
+        ...(primaryValues.length === 1
+          ? { [this.primaryKey]: primaryValues[0] }
+          : { [this.primaryKey]: { $in: primaryValues } }),
+      } as any)
+      .returning()
+      .toSQL();
+    const updateResult = this.execSQLWithBindingList([updateQuery]);
+    return updateResult;
   }
 
   /**
@@ -459,7 +438,7 @@ export class Repository<T extends Table> {
     },
   ) {
     const { isHardDelete, limit } = options;
-    const { orderBy, condition } = this.transformData(conditions);
+    const { orderBy, condition } = transformData(conditions);
     const now = removeTimezone();
     const queryBuilder = new QueryBuilder<{
       _deleteAt: string;
@@ -516,254 +495,28 @@ export class Repository<T extends Table> {
       return deleteResult;
     }
   }
+}
 
-  private buildLimitClause(options: QueryClauses) {
-    const { limit, offset } = options;
-    let str = '';
-    if (limit) {
-      str += `LIMIT ${limit}`;
+function transformData<T extends ColumnQuery<any>>(conditions: T) {
+  const condition: Record<string, any> = {};
+  const orderBy: Partial<Record<keyof typeof conditions, OrderByType>> = {};
+
+  Object.entries(conditions).forEach(([key, value]) => {
+    if (typeof value === 'object' && value !== null) {
+      Object.entries(operatorsMap).forEach(([operator, sqlOperator]) => {
+        if (value.hasOwnProperty(operator)) {
+          condition[key] = condition[key] || {};
+          condition[key][sqlOperator] = value[operator];
+        }
+      });
+
+      if (value.hasOwnProperty('orderBy')) {
+        orderBy[key as keyof typeof conditions] = value.orderBy;
+      }
     } else {
-      return str;
+      condition[key] = value;
     }
-    if (offset) {
-      str += ` OFFSET ${offset}`;
-    }
-    return str;
-  }
+  });
 
-  private buildOrderByClause(conditions: ColumnQuery<T['columns']>) {
-    const orderByOptions = Object.entries(conditions).filter(([_, v]) => {
-      // 如果v是对象，并且有order属性，那么就认为是排序条件
-      if (typeof v === 'object' && v !== null && 'orderBy' in v) {
-        return true;
-      }
-    });
-
-    if (orderByOptions.length === 0) {
-      return '';
-    }
-    const orderByStr = orderByOptions
-      .map(([k, v]) => {
-        return `${k} ${v.orderBy}`;
-      })
-      .filter(Boolean)
-      .join(', ');
-    return `ORDER BY ${orderByStr}`;
-  }
-
-  /**
-   * 构建 WHERE 子句
-   * @param conditions
-   * @returns
-   */
-  private buildWhereClause(conditions: ColumnQuery<T['columns']>) {
-    const whereClauses = Object.entries(conditions)
-      ?.map(([key, options]) => {
-        return this.optionsClauses(key, options);
-      })
-      .filter(Boolean)
-      .join(' AND ');
-    this.logger.info(`whereClauses: ${whereClauses}`);
-    if (!whereClauses) {
-      return `WHERE _deleteAt IS NULL`;
-    }
-    return `WHERE _deleteAt IS NULL AND ${whereClauses}`;
-  }
-
-  private buildWhereWithRowid(res: ColumnInfer<T['columns']>[]) {
-    return `WHERE rowid IN (${res.map((item) => item.rowid)})`;
-  }
-
-  private handleArrayClause(options: string[] | number[]) {
-    if (options.length === 0) {
-      return '()';
-    }
-    return `(${options.map((item) => (typeof item === 'string' ? `'${item.replace(/'/g, "''")}'` : item)).join(', ')})`;
-  }
-
-  private optionsClauses(
-    attr: string,
-    options:
-      | ColClause
-      | string
-      | number
-      | string[]
-      | number[]
-      | null
-      | undefined,
-  ) {
-    if (options === null || options === undefined) {
-      return `${attr} IS NULL`;
-    }
-
-    if (typeof options === 'string' || typeof options === 'number') {
-      return `${attr} = ${typeof options === 'string' ? `'${options.replace(/'/g, "''")}'` : options}`;
-    }
-    if (Array.isArray(options)) {
-      let str = '';
-      // 判断options数组中是否包含null或undefined
-      if (options.some((item) => item === null || item === undefined)) {
-        str = `${attr} IS NULL`;
-      }
-
-      // 排除options数组中的null和undefined
-      const newOptions = options.filter(
-        (item) => item !== null && item !== undefined,
-      ) as string[] | number[];
-
-      return str
-        ? `${str} OR ${attr} IN ${this.handleArrayClause(newOptions)}`
-        : `${attr} IN ${this.handleArrayClause(newOptions)}`;
-    }
-    const clauses: string[] = [];
-    const orClauses: string[] = [];
-
-    if (
-      options.hasOwnProperty('equal') &&
-      (options.equal === null || options.equal === undefined)
-    ) {
-      clauses.push(`${attr} IS NULL`);
-    }
-
-    if (
-      options.hasOwnProperty('notEqual') &&
-      (options.notEqual === null || options.notEqual === undefined)
-    ) {
-      clauses.push(`${attr} IS NOT NULL`);
-    }
-
-    if (options.equal !== undefined && options.equal !== null) {
-      if (Array.isArray(options.equal)) {
-        // 判断options.equal数组中是否包含null或undefined
-        if (options.equal.some((item) => item === null || item === undefined)) {
-          orClauses.push(`${attr} IS NULL`);
-        }
-        // 排除options.equal数组中的null和undefined
-        const newOptions = options.equal.filter(
-          (item) => item !== null && item !== undefined,
-        ) as string[] | number[];
-        // if (newOptions.length !== 0) {
-        clauses.push(`${attr} IN ${this.handleArrayClause(newOptions)}`);
-        // }
-      } else {
-        clauses.push(
-          `${attr} = ${typeof options.equal === 'string' ? `'${options.equal.replace(/'/g, "''")}'` : options.equal}`,
-        );
-      }
-    }
-    if (options.notEqual !== undefined && options.notEqual !== null) {
-      if (Array.isArray(options.notEqual)) {
-        // 判断options.notEqual数组中是否包含null或undefined
-        if (
-          options.notEqual.some((item) => item === null || item === undefined)
-        ) {
-          orClauses.push(`${attr} IS NOT NULL`);
-        }
-        // 排除options.notEqual数组中的null和undefined
-        const newOptions = options.notEqual.filter(
-          (item) => item !== null && item !== undefined,
-        ) as string[] | number[];
-        // if (newOptions.length !== 0) {
-        clauses.push(`${attr} NOT IN ${this.handleArrayClause(newOptions)}`);
-        // }
-      } else {
-        clauses.push(
-          `${attr} != ${typeof options.notEqual === 'string' ? `'${options.notEqual.replace(/'/g, "''")}'` : options.notEqual}`,
-        );
-      }
-    }
-    if (options.lt !== undefined) {
-      clauses.push(`${attr} < ${options.lt}`);
-    }
-    if (options.gt !== undefined) {
-      clauses.push(`${attr} > ${options.gt}`);
-    }
-    if (options.lte !== undefined) {
-      clauses.push(`${attr} <= ${options.lte}`);
-    }
-    if (options.gte !== undefined) {
-      clauses.push(`${attr} >= ${options.gte}`);
-    }
-    if (options.like !== undefined) {
-      clauses.push(`${attr} LIKE '%${options.like.replace(/'/g, "''")}%'`);
-    }
-
-    // 拼接当前 attr 的所有 and 条件
-    const currentAttrClauses = clauses.join(' AND ');
-    // 拼接当前 attr 的所有 or 条件
-    const currentAttrOrClauses = orClauses.join(' OR ');
-    // 如果当前 attr 的所有条件和所有 or 条件都为空，则返回空字符串
-    if (!currentAttrClauses && !currentAttrOrClauses) {
-      return '';
-    }
-    // 如果当前 attr 的所有条件和所有 or 条件都不为空，则返回当前 attr 的所有条件和所有 or 条件的拼接结果
-    if (currentAttrClauses && currentAttrOrClauses) {
-      return `(${currentAttrClauses} OR ${currentAttrOrClauses})`;
-    }
-    // 如果当前 attr 的所有条件不为空，则返回当前 attr 的所有条件
-    if (currentAttrClauses) {
-      return `${currentAttrClauses}`;
-    }
-    // 如果当前 attr 的所有 or 条件不为空，则返回当前 attr 的所有 or 条件
-    if (currentAttrOrClauses) {
-      return `${currentAttrOrClauses}`;
-    }
-  }
-
-  /**
-   * 构建 SET 子句
-   * @param newData
-   * @returns
-   */
-  private buildSetClauses(newData: Partial<ColumnInfer<T['columns']>>): string {
-    const setClauses = Object.entries(newData)
-      .map(([key, value]) => {
-        if (typeof value === 'string') {
-          return `${key} = '${(value as string).replace(/'/g, "''")}'`; // 处理字符串中的单引号
-        }
-        if (value === null || value === undefined) {
-          return `${key} = NULL`;
-        }
-        return `${key} = ${value}`;
-      })
-      .join(', ');
-
-    if (setClauses === '') {
-      return '';
-    }
-
-    return `SET ${setClauses}`;
-  }
-
-  private escapeSqlValue(value: any): string {
-    if (typeof value === 'string') {
-      // 处理字符串中的单引号
-      return `'${value.replace(/'/g, "''")}'`;
-    }
-    return value;
-  }
-
-  private transformData(conditions: ColumnQuery<T['columns']>) {
-    const condition: Record<string, any> = {};
-    const orderBy: Partial<Record<keyof typeof conditions, OrderByType>> = {};
-
-    Object.entries(conditions).forEach(([key, value]) => {
-      if (typeof value === 'object' && value !== null) {
-        Object.entries(operatorsMap).forEach(([operator, sqlOperator]) => {
-          if (value.hasOwnProperty(operator)) {
-            condition[key] = condition[key] || {};
-            condition[key][sqlOperator] = value[operator];
-          }
-        });
-
-        if (value.hasOwnProperty('orderBy')) {
-          orderBy[key as keyof typeof conditions] = value.orderBy;
-        }
-      } else {
-        condition[key] = value;
-      }
-    });
-
-    return { condition, orderBy };
-  }
+  return { condition, orderBy };
 }

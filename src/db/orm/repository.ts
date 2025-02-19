@@ -2,7 +2,7 @@ import { Logger } from '../../utils';
 import type { SqliteWasmORM } from '../orm';
 import { removeTimezone } from '../utils';
 import type { ColumnType } from './column';
-import type { SQLWithBindings } from './queryBuilder/lib';
+import type { OrderByType, SQLWithBindings } from './queryBuilder/lib';
 import {
   type Table,
   type ColumnInfer,
@@ -34,10 +34,8 @@ export interface ColClause<T = any> {
   between?: [any, any];
   /** not between */
   $notBetween?: [any, any];
-  orderBy?: TOrderBy;
+  orderBy?: OrderByType;
 }
-
-type TOrderBy = 'ASC' | 'DESC';
 
 const operatorsMap = {
   equal: '$eq',
@@ -229,19 +227,30 @@ export class Repository<T extends Table> {
     conditions: ColumnQuery<T['columns']>,
     queryClauses: QueryClauses = {},
   ): ColumnInfer<T['columns']>[] {
-    // 构建 WHERE 子句
-    const whereClauses = this.buildWhereClause(conditions);
-    // 构建 ORDER BY 子句
-    const orderByClauses = this.buildOrderByClause(conditions);
+    const { orderBy, condition } = this.transformData(conditions);
 
-    // 构建 LIMIT 子句
-    const limitClause = this.buildLimitClause(queryClauses);
+    const query = this.orm
+      .getQueryBuilder(this.table.name)
+      .select('rowid')
+      .select()
+      .from(this.table.name)
+      .where(condition);
 
-    const sql = `SELECT rowid, * FROM ${this.table.name} ${whereClauses} ${orderByClauses} ${limitClause}`;
+    if (Object.keys(orderBy).length > 0) {
+      Object.entries(orderBy).forEach(([key, value]) => {
+        query.orderBy(key as any, value);
+      });
+    }
 
-    this.logger.info('query sql ===>', sql).print();
-    const result = this.orm.exec(sql) || [];
-    return result as unknown as ColumnInfer<T['columns']>[];
+    if (queryClauses.limit) {
+      query.limit(queryClauses.limit);
+    }
+    if (queryClauses.offset) {
+      query.offset(queryClauses.offset);
+    }
+
+    const result = this.execSQLWithBindingList([query.toSQL()]);
+    return result;
   }
 
   query(
@@ -777,7 +786,7 @@ export class Repository<T extends Table> {
 
   private transformData(conditions: ColumnQuery<T['columns']>) {
     const condition: Record<string, any> = {};
-    const orderBy: Record<string, TOrderBy> = {};
+    const orderBy: Partial<Record<keyof typeof conditions, OrderByType>> = {};
 
     Object.entries(conditions).forEach(([key, value]) => {
       if (typeof value === 'object' && value !== null) {
@@ -789,7 +798,7 @@ export class Repository<T extends Table> {
         });
 
         if (value.hasOwnProperty('orderBy')) {
-          orderBy[key] = value.orderBy;
+          orderBy[key as keyof typeof conditions] = value.orderBy;
         }
       } else {
         condition[key] = value;

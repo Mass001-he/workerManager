@@ -233,8 +233,10 @@ class ColumnBoolean extends ColumnType<boolean> {
 
   verify(value: any) {
     const messages = [...super.verify(value)];
-    if (typeof value !== 'boolean' && value !== undefined && value !== null) {
-      messages.push('value must be boolean');
+    if (
+      !(typeof value === 'boolean' || [0, 1, undefined, null].includes(value))
+    ) {
+      messages.push('value must be boolean or 0/1 undefined/null');
     }
     return messages;
   }

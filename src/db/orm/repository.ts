@@ -136,6 +136,7 @@ export class Repository<T extends Table> {
           this.logger.warn(
             `The column '${key}' does not exist on table '${this.table.name}'.`,
           );
+          delete column[key as keyof typeof column];
           return true;
         }
         const res = this.columns[key].verify(value);
@@ -186,6 +187,9 @@ export class Repository<T extends Table> {
    * @returns
    */
   insertMany(items: ColumnInfer<T['columns']>[]) {
+    if (items.length === 0) {
+      return [];
+    }
     this.validateColumns(items);
     const inserts = this.orm
       .getQueryBuilder(this.table.name)
@@ -219,6 +223,9 @@ export class Repository<T extends Table> {
    * @returns
    */
   upsertMany(items: ColumnInfer<T['columns']>[], conflictKey?: string) {
+    if (items.length === 0) {
+      return [];
+    }
     const columnKeys = this.validateColumns(items);
     const excluded = columnKeys.reduce((prev, curr) => {
       prev[curr] = `excluded.${curr}`;
@@ -249,6 +256,8 @@ export class Repository<T extends Table> {
     queryClauses: QueryClauses = {},
   ) {
     const { orderBy, condition } = transformData(conditions);
+
+    console.log('condition', condition);
 
     const query = this.orm
       .getQueryBuilder(this.table.name)
@@ -512,6 +521,11 @@ function transformData<T extends ColumnQuery<any>>(conditions: T) {
 
       if (value.hasOwnProperty('orderBy')) {
         orderBy[key as keyof typeof conditions] = value.orderBy;
+      }
+
+      if (Array.isArray(value)) {
+        condition[key] = condition[key] || {};
+        condition[key]['$in'] = value;
       }
     } else {
       condition[key] = value;

@@ -1,0 +1,1 @@
+{cells:[{kind:2,language:'typescriptreact',value:'//测试vnb\nconst fib = (n: number) => {\n  if (n <= 1) return n;\n  return fib(n - 1) + fib(n - 2);\n};\n\nVitale.html(`\n  <div>\n    <h1>${fib(10)}</h1>\n  </div>\n`);\n',metadata:{id:'3ajMe5RhEmanLnU-zZu0t'}}]}

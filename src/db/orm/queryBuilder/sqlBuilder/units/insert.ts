@@ -7,7 +7,9 @@ import { arraysEqual, quotes, validateBindings } from '../../utils'
 
 const MAX_BATCH_SIZE = 10000
 
-export const insertUnit = (insertClauses?: InsertClause[]): SQLWithBindings[] => {
+export const insertUnit = (
+  insertClauses?: InsertClause[],
+): SQLWithBindings[] => {
   if (!insertClauses || insertClauses.length === 0) {
     throw new Error('No INSERT clause provided')
   }
@@ -73,9 +75,12 @@ export const insertUnit = (insertClauses?: InsertClause[]): SQLWithBindings[] =>
             `(${columns
               .map((col) => {
                 const value = obj[col]
-                if (value !== null) {
-                  bindings.push(value)
-                  return '?'
+                if (value !== null || value !== undefined) {
+                  if (typeof value === 'string') {
+                    bindings.push(value)
+                    return '?'
+                  }
+                  return value
                 }
                 return 'NULL'
               })

@@ -229,8 +229,8 @@ const optimizeSet = (
 
   // Handle AND conditions
   if (type === 'AND') {
-    // when adding an $eq condition of type 'AND', other conditions with equality should cause an error
-    if (target.hasAndCondition) {
+    const highPriority = ['eq', 'neq', 'like', 'in', 'between', 'notBetween']
+    if (highPriority.includes(key) && target.hasAndCondition) {
       console.error(target, key)
       throw new Error(
         `"${column}" has already had another condition with equality in AND condition`,
@@ -242,10 +242,8 @@ const optimizeSet = (
 
   if (Array.isArray(sourceValue)) {
     if (key === '$between' || key === '$notBetween') {
-      // 对于 between 类型的条件，直接将整个数组作为一个元素推入
       targetArray.push(sourceValue)
     } else {
-      // 其他数组类型的条件按原来的方式处理
       targetArray.push(...sourceValue)
     }
   } else {

@@ -100,6 +100,7 @@ export class Repository<T extends Table> {
   }
 
   public primaryKey = 'rowid';
+  public uniqueKeys: string[] = ['rowid'];
 
   private constructor(
     private table: T,
@@ -110,8 +111,12 @@ export class Repository<T extends Table> {
     Object.entries(this.columns).forEach(([key, value]) => {
       if (value._primary) {
         this.primaryKey = key;
+        this.uniqueKeys.push(this.primaryKey);
       }
     });
+    if (table.getIndex) {
+      this.uniqueKeys.push(...(table.getIndex().unique ?? []));
+    }
   }
 
   private validateKernelCols(data: Partial<ColumnInfer<T['columns']>>) {

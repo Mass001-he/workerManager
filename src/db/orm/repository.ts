@@ -492,6 +492,22 @@ export class Repository<T extends Table> {
   }
 
   /**
+   * 硬删除数据
+   * @param conditions 筛选数据条件
+   * @param options 删除选项
+   * @returns
+   */
+  delete(
+    conditions: ColumnQuery<T['columns']>,
+    options: Omit<RemoveOptions, 'isHardDelete'>,
+  ) {
+    return this.remove(conditions, {
+      isHardDelete: true,
+      limit: options.limit,
+    });
+  }
+
+  /**
    * 删除数据
    * @param conditions 筛选数据条件
    * @param options 删除选项

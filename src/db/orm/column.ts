@@ -90,13 +90,13 @@ export abstract class ColumnType<Type = any> implements ColumnParams {
     if (this.__sqlType) {
       sql.push(this.__sqlType);
     }
-    if (this._autoIncrement) {
-      sql.push('AUTOINCREMENT');
-    }
     if (this._primary) {
       sql.push('PRIMARY KEY');
     }
-    if (this._required) {
+    if (this._autoIncrement) {
+      sql.push('AUTOINCREMENT');
+    }
+    if (this._required && !this._primary) {
       sql.push('NOT NULL');
     }
     if (this._default !== undefined) {

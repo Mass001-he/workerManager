@@ -76,6 +76,7 @@ export class Upgrade<T extends Table[]> {
         return table.genCreateSql();
       })
       .join('\n');
+    this.logger.info('Create table SQL:', sql).print();
     return this.orm.exec(sql);
   }
 

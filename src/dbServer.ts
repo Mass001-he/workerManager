@@ -4,40 +4,15 @@ import { col } from './db/orm/column';
 import { SqliteWasmORM } from './db/orm/orm';
 
 const { text, integer } = col;
-const userTable = table(
-  'user',
-  {
-    name: text(),
-    age: integer().max(100),
-  },
-  () => {
-    return {
-      unique: ['name'],
-    };
-  },
-);
-
-const postTable = table('post', {
-  title: text(),
-  content: text(),
-});
-const version1 = {
-  tables: [userTable],
-  version: 1,
-};
 
 const version2 = {
   tables: [
     table(
       'user',
       {
-        mid: text().primary(),
+        id: integer().primary().autoIncrement(),
         name: text(),
         age: integer().max(100),
-        profile: text().default('123'),
-        avatar: text().optional(),
-        nickname: text().optional(),
-        abc: integer().default(1),
       },
       () => {
         return {
@@ -45,16 +20,20 @@ const version2 = {
         };
       },
     ),
-    postTable,
   ],
   version: 2,
 };
 
 const orm = new SqliteWasmORM(version2);
-const userRepo = orm.getRepository('user');
 
 //test
-setTimeout(() => {}, 1000);
+setTimeout(() => {
+  const user = Array.from({ length: 100 }, (_, i) => ({
+    name: `user${i}`,
+    age: i,
+  }));
+  orm.getRepository('user').insertMany(user);
+}, 1000);
 
 function connect(name: string) {
   return orm.connect(name);

@@ -4,7 +4,6 @@ import { registerService } from './service';
 import { SQLView } from './sqlView';
 import './index.css';
 import { WebRemoteEmitter } from './utils/event/remoteEmitter';
-import { safeRandomUUID } from './utils/event/utils';
 
 const sharedWorker = new SharedWorker(new URL('./worker.ts', import.meta.url), {
   name: 'vertexWorker',

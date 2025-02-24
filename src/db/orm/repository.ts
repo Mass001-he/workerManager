@@ -499,7 +499,9 @@ export class Repository<T extends Table> {
    */
   delete(
     conditions: ColumnQuery<T['columns']>,
-    options: Omit<RemoveOptions, 'isHardDelete'>,
+    options: Omit<RemoveOptions, 'isHardDelete'> = {
+      limit: undefined,
+    },
   ) {
     return this.remove(conditions, {
       isHardDelete: true,

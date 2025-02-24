@@ -307,13 +307,16 @@ export class Repository<T extends Table> {
   ) {
     const { orderBy, condition } = transformData(conditions);
 
-    console.log('condition', condition);
-
     const query = this.orm
       .getQueryBuilder(this.table.name)
       .select()
       .from(this.table.name)
-      .where(condition);
+      .where(condition)
+      .where({
+        _deleteAt: {
+          $null: true,
+        },
+      });
 
     if (this.primaryKey === 'rowid') {
       query.select('rowid');
@@ -399,6 +402,11 @@ export class Repository<T extends Table> {
           ? { [this.primaryKey]: primaryValues[0] }
           : { [this.primaryKey]: { $in: primaryValues } }),
       } as any)
+      .where({
+        _deleteAt: {
+          $null: true,
+        },
+      })
       .returning()
       .toSQL();
 
@@ -565,7 +573,16 @@ function transformData<T extends ColumnQuery<any>>(conditions: T) {
       Object.entries(operatorsMap).forEach(([operator, sqlOperator]) => {
         if (value.hasOwnProperty(operator)) {
           condition[key] = condition[key] || {};
-          condition[key][sqlOperator] = value[operator];
+          if ('equal' === operator && Array.isArray(value[operator])) {
+            condition[key]['$in'] = value[operator];
+          } else if (
+            'notEqual' === operator &&
+            Array.isArray(value[operator])
+          ) {
+            condition[key]['$nin'] = value[operator];
+          } else {
+            condition[key][sqlOperator] = value[operator];
+          }
         }
       });
 

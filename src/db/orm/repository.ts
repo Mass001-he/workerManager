@@ -268,20 +268,30 @@ export class Repository<T extends Table> {
    * @param items
    * @param uniqueKey
    */
-  updateByUniqueKey(newData: ColumnInfer<T['columns']>[], uniqueKey?: string) {
-    const primaryKey =
-      uniqueKey ||
-      Object.keys(this.columns).find((k) => this.columns[k]._primary);
-
-    if (!primaryKey || !this.uniqueKeys.includes(primaryKey)) {
-      throw new Error('No unique key found');
-    }
-
+  updateByUniqueKey(newData: ColumnInfer<T['columns']>[], _uniqueKey?: string) {
     const now = removeTimezone();
     const updateQuery: SQLWithBindings[] = [];
     newData.forEach((item) => {
-      const primaryValue = item[primaryKey as keyof ColumnInfer<T['columns']>];
-      delete item[primaryKey as keyof ColumnInfer<T['columns']>];
+      let uniqueKey = _uniqueKey;
+      if (!uniqueKey) {
+        for (const key of Object.keys(item)) {
+          if (this.uniqueKeys.includes(key)) {
+            uniqueKey = key;
+            break;
+          }
+        }
+      }
+
+      if (!uniqueKey || !this.uniqueKeys.includes(uniqueKey)) {
+        throw new Error('No unique key found');
+      }
+
+      const uniqueValue = item[uniqueKey as keyof ColumnInfer<T['columns']>];
+      this.uniqueKeys.forEach((key) => {
+        // 删除唯一键 防止更新造成bug
+        delete item[key as keyof ColumnInfer<T['columns']>];
+      });
+
       const query = this.orm
         .getQueryBuilder(this.table.name)
         .update(this.table.name, {
@@ -289,7 +299,7 @@ export class Repository<T extends Table> {
           _updateAt: now as any,
         })
         .where({
-          [primaryKey]: primaryValue,
+          [uniqueKey]: uniqueValue,
         } as any)
         .returning()
         .toSQL();

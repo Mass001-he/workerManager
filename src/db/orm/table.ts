@@ -90,15 +90,17 @@ export class Table<
 
   private genCreateIndexSql() {
     if (!this.getIndex) {
-      return '';
+      const colName = '_deleteAt';
+      return `CREATE INDEX IF NOT EXISTS idx_${this.name}_${colName} ON ${this.name} (${colName});`;
     }
     const { composite = [], index = [], unique = [] } = this.getIndex();
+
     //如果index和unique中有相同的字段，报错
     const conflict = index.filter((i) => unique.includes(i));
     if (conflict.length > 0) {
       throw new Error(`index and unique has conflict column: ${conflict}`);
     }
-    const indexSql = index.map(
+    const indexSql = [...index, '_deleteAt'].map(
       (colName) =>
         `CREATE INDEX IF NOT EXISTS idx_${this.name}_${colName} ON ${this.name} (${colName});`,
     );
@@ -107,9 +109,7 @@ export class Table<
         `CREATE UNIQUE INDEX IF NOT EXISTS idx_${this.name}_${colName} ON ${this.name} (${colName});`,
     );
     const compositeSql = Object.entries(composite).map(([indexName, cols]) => {
-      return `CREATE INDEX IF NOT EXISTS idx_${this.name}_${indexName} ON ${this.name} (${cols.join(
-        ',',
-      )});`;
+      return `CREATE INDEX IF NOT EXISTS idx_${this.name}_${indexName} ON ${this.name} (${cols.join(',')});`;
     });
     return '\n' + [...indexSql, ...uniqueSql, ...compositeSql].join('\n');
   }

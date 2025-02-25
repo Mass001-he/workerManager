@@ -165,11 +165,17 @@ export class Repository<T extends Table> {
     const result: any[] = [];
     this.orm.dbOriginal.transaction(() => {
       SQLWithBindingsList.forEach(([sql, bind]) => {
-        const res = this.orm.exec(sql, { bind });
-        if (Array.isArray(res)) {
-          result.push(...res);
-        } else {
-          throw new Error(`no returning`);
+        try {
+          const res = this.orm.exec(sql, { bind });
+          if (Array.isArray(res)) {
+            result.push(...res);
+          } else {
+            throw new Error(`no returning`);
+          }
+        } catch (error) {
+          this.logger.error(`execSQLWithBindingList error: ${error}`).print();
+          this.logger.error({ sql, bind }).print();
+          throw error;
         }
       });
     });
@@ -256,19 +262,61 @@ export class Repository<T extends Table> {
     return result;
   }
 
+  /**
+   * @description 批量更新数据, 用户可以指定唯一键,如果不指定唯一键,会使用主键
+   * @description_en Bulk update data, the user can specify a unique key, if not specified, the primary key will be used.
+   * @param items
+   * @param uniqueKey
+   */
+  updateByUniqueKey(newData: ColumnInfer<T['columns']>[], uniqueKey?: string) {
+    const primaryKey =
+      uniqueKey ||
+      Object.keys(this.columns).find((k) => this.columns[k]._primary);
+
+    if (!primaryKey || !this.uniqueKeys.includes(primaryKey)) {
+      throw new Error('No unique key found');
+    }
+
+    const now = removeTimezone();
+    const updateQuery: SQLWithBindings[] = [];
+    newData.forEach((item) => {
+      const primaryValue = item[primaryKey as keyof ColumnInfer<T['columns']>];
+      delete item[primaryKey as keyof ColumnInfer<T['columns']>];
+      const query = this.orm
+        .getQueryBuilder(this.table.name)
+        .update(this.table.name, {
+          ...item,
+          _updateAt: now as any,
+        })
+        .where({
+          [primaryKey]: primaryValue,
+        } as any)
+        .returning()
+        .toSQL();
+
+      updateQuery.push(query);
+    });
+
+    const updateResult = this.execSQLWithBindingList(updateQuery);
+    return updateResult;
+  }
+
   private _query(
     conditions: ColumnQuery<T['columns']>,
     queryClauses: QueryClauses = {},
   ) {
     const { orderBy, condition } = transformData(conditions);
 
-    console.log('condition', condition);
-
     const query = this.orm
       .getQueryBuilder(this.table.name)
       .select()
       .from(this.table.name)
-      .where(condition);
+      .where(condition)
+      .where({
+        _deleteAt: {
+          $null: true,
+        },
+      });
 
     if (this.primaryKey === 'rowid') {
       query.select('rowid');
@@ -354,6 +402,11 @@ export class Repository<T extends Table> {
           ? { [this.primaryKey]: primaryValues[0] }
           : { [this.primaryKey]: { $in: primaryValues } }),
       } as any)
+      .where({
+        _deleteAt: {
+          $null: true,
+        },
+      })
       .returning()
       .toSQL();
 
@@ -439,6 +492,24 @@ export class Repository<T extends Table> {
   }
 
   /**
+   * 硬删除数据
+   * @param conditions 筛选数据条件
+   * @param options 删除选项
+   * @returns
+   */
+  delete(
+    conditions: ColumnQuery<T['columns']>,
+    options: Omit<RemoveOptions, 'isHardDelete'> = {
+      limit: undefined,
+    },
+  ) {
+    return this.remove(conditions, {
+      isHardDelete: true,
+      limit: options.limit,
+    });
+  }
+
+  /**
    * 删除数据
    * @param conditions 筛选数据条件
    * @param options 删除选项
@@ -520,7 +591,16 @@ function transformData<T extends ColumnQuery<any>>(conditions: T) {
       Object.entries(operatorsMap).forEach(([operator, sqlOperator]) => {
         if (value.hasOwnProperty(operator)) {
           condition[key] = condition[key] || {};
-          condition[key][sqlOperator] = value[operator];
+          if ('equal' === operator && Array.isArray(value[operator])) {
+            condition[key]['$in'] = value[operator];
+          } else if (
+            'notEqual' === operator &&
+            Array.isArray(value[operator])
+          ) {
+            condition[key]['$nin'] = value[operator];
+          } else {
+            condition[key][sqlOperator] = value[operator];
+          }
         }
       });
 

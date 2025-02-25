@@ -109,6 +109,7 @@ export class SqliteWasmORM<T extends Table[]> {
 
   exec<R>(sql: string, options?: ExecBaseOptions & ExecReturnThisOptions) {
     try {
+      const startTime = performance.now();
       const result = this.dbOriginal.exec(sql, {
         rowMode: 'object',
         ...options,
@@ -118,6 +119,7 @@ export class SqliteWasmORM<T extends Table[]> {
           sql,
           bind: options?.bind,
           result,
+          time: performance.now() - startTime,
         })
         .print();
       return result as R;

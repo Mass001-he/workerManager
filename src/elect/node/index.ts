@@ -200,7 +200,9 @@ export class Node {
         const { serviceName, params } = task.data;
 
         const handle = this.service.get(serviceName);
+        const startTime = performance.now();
         const res = await handle(params);
+        const time = performance.now() - startTime;
         const _payload: DispatchResponsePayload = {
           data: res,
           type: MessageType.DispatchResponse,
@@ -215,6 +217,7 @@ export class Node {
             res,
             reqId: task.reqId,
             nodeId: task.nodeId,
+            time,
           })
           .print();
         this.post(_payload);

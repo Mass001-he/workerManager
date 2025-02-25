@@ -99,15 +99,6 @@ export class Scheduler {
           this.council.abdicate();
         }
         break;
-      case NodeAction.UpperReady:
-        if (this.council.leader !== nodeId) {
-          this.logger.error('UpperReady: leader not equals', nodeId).print();
-          throw new Error('UpperReady: leader not found');
-        }
-        this.isReadyDispatch = true;
-        this.eventQueue.dispatch();
-        this.nodeManager.broadcastNotice(NodeAction.LeaderChange, [nodeId]);
-        break;
       default:
         this.logger.error('unknown action', e.data.data.action).print();
         break;
@@ -120,6 +111,27 @@ export class Scheduler {
     const node = this.nodeManager.getNodeById(nodeId);
 
     switch (actionType) {
+      case SchedulerAction.UpperReady:
+        if (this.council.leader !== nodeId) {
+          this.logger.error('UpperReady: leader not equals', nodeId).print();
+          throw new Error('UpperReady: leader not found');
+        }
+        this.isReadyDispatch = true;
+        this.eventQueue.dispatch();
+        this.nodeManager.postMessage({
+          node,
+          message: {
+            type: MessageType.Response,
+            reqId: payload.reqId,
+            success: true,
+            data: {
+              action: SchedulerAction.UpperReady,
+              result: true,
+            },
+          },
+        });
+        this.nodeManager.broadcastNotice(NodeAction.LeaderChange, [nodeId]);
+        break;
       case SchedulerAction.TakeOffice:
         const result = this.council.takeOffice(nodeId);
         this.nodeManager.postMessage({

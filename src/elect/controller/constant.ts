@@ -8,4 +8,5 @@ export enum NodeAction {
 
 export enum SchedulerAction {
   TakeOffice = 'takeOffice',
+  UpperReady = 'upperReady',
 }

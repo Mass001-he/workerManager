@@ -28,7 +28,7 @@ const App = () => {
       console.log('result===>', result);
       if (result) {
         await registerService(node.service);
-        node.upperReady();
+        await node.upperReady();
       } else {
         node.setOptions({
           onElection: async (service) => {

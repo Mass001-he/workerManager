@@ -109,19 +109,21 @@ export class Node {
     this.handleTasks(this._cacheTask);
     this._cacheTask = [];
     await this.options.onElection?.(this.service);
-    this.upperReady();
+    await this.upperReady();
     this.logger.info('Election success').print();
   }
 
   /**
    * 准备就绪，通知`Scheduler`可以开始工作了。调用后，`Scheduler`会开始派发任务
    */
-  upperReady() {
-    this.post({
+  async upperReady() {
+    const res = await this._request({
+      type: MessageType.Request,
       data: {
-        action: NodeAction.UpperReady,
+        action: SchedulerAction.UpperReady,
       },
     });
+    return res.data.result as boolean;
   }
 
   private register() {
